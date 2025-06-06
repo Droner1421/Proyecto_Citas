@@ -1,83 +1,116 @@
 import tkinter as tk
-from tkinter import ttk, font
+from tkinter import messagebox, ttk
 from conexionDB import conexionDB
-from tkinter import messagebox
+from Regis_Pas import RegistroCitaVentana
 
+class ProximasCitasVentana:
+    def __init__(self):
+        self.crear_interfaz()
 
-def ventanaENF():
-   
-    HEADER_BG = '#8FD3F4'
-    BUTTON_OP_BG = '#AAF0D1'
-    BUTTON_OP_FG = '#000000'
-    TABLE_BG = '#FFFFFF'
-    TABLE_BORDER = '#DDDDDD'
-    TIME_BG = '#E8F8EF'
-    TIME_FG = '#2E8B57'
-    CELL_BG = '#D3D3D3'
-    FOOTER_BG = '#F5F5F5'
+    def crear_interfaz(self):
+        self.ventana = tk.Tk()
+        self.ventana.title("Próximas Citas")
+        self.ventana.geometry("1100x600")
+        self.ventana.configure(bg='white')
 
-    root = tk.Tk()
-    root.title("Próximas Citas")
-    root.geometry("800x700")
-    root.configure(bg='black')
+        header = tk.Frame(self.ventana, bg='#8FD3F4', height=60, bd=2, relief='groove')
+        header.pack(fill='x', side='top')
 
-  
-    header = tk.Frame(root, bg=HEADER_BG, height=60, bd=2, relief='groove')
-    header.pack(fill='x', side='top')
+        logo = tk.Canvas(header, width=40, height=40, bg='white', highlightthickness=1)
+        logo.create_oval(5, 5, 35, 35)
+        logo.create_text(20, 20, text="L", font=("Arial", 14, "bold"))
+        logo.pack(side='left', padx=10, pady=10)
 
-    logo = tk.Canvas(header, width=40, height=40, bg='white', highlightthickness=1)
-    logo.create_oval(5, 5, 35, 35)
-    logo.create_text(20, 20, text="L", font=("Arial", 14, "bold"))
-    logo.pack(side='left', padx=10, pady=10)
+        tk.Label(header, text="Logotipo", bg='#8FD3F4', fg='black', font=("Arial", 14, "bold")).pack(side='left')
+        tk.Label(header, text="Nombre institución", bg='#8FD3F4', fg='black', font=("Arial", 16, "bold")).pack(side='right', padx=20)
 
-    tk.Label(header, text="Logotipo", bg=HEADER_BG, fg='black', font=("Arial", 14, "bold")).pack(side='left')
-    tk.Label(header, text="Nombre institucion", bg=HEADER_BG, fg='black', font=("Arial", 16, "bold")).pack(side='right', padx=20)
+        topbar = tk.Frame(self.ventana, bg='#F5F5F5', height=40, bd=1, relief='groove')
+        topbar.pack(fill='x')
 
-   
-    topbar = tk.Frame(root, bg='#F5F5F5', height=40, bd=1, relief='groove')
-    topbar.pack(fill='x')
+        op_btn = tk.Menubutton(topbar, text="Operaciones", bg='#AAF0D1', fg='#000000', font=("Arial", 10, "bold"), relief='raised')
+        op_menu = tk.Menu(op_btn, tearoff=0)
+        # Solo pasa self.ventana si tu RegistroCitaVentana solo acepta un argumento
+        op_menu.add_command(label="Nueva Cita", command=lambda: RegistroCitaVentana(self.ventana))
+        op_menu.add_command(label="Buscar Cita", command=lambda: messagebox.showinfo("Buscar Cita", "Funcionalidad no implementada"))
+        op_menu.add_command(label="Dashboard", command=lambda: messagebox.showinfo("Dashboard", "Funcionalidad no implementada"))
+        op_btn.config(menu=op_menu)
+        op_btn.pack(side='left', padx=15, pady=5)
 
-    op_btn = tk.Menubutton(topbar, text="Operaciones", bg=BUTTON_OP_BG, fg=BUTTON_OP_FG, font=("Arial", 10, "bold"), relief='raised')
-    op_menu = tk.Menu(op_btn, tearoff=0)
-    op_menu.add_command(label="Nueva Cita", command=lambda: messagebox.showinfo("Nueva Cita", "Funcionalidad no implementada"))
-    op_menu.add_command(label="Buscar Cita", command=lambda: messagebox.showinfo("Buscar Cita", "Funcionalidad no implementada"))
-    op_menu.add_command(label="Dashboard", command=lambda: messagebox.showinfo("Dashboard", "Funcionalidad no implementada"))
-    op_btn.config(menu=op_menu)
-    op_btn.pack(side='left', padx=15, pady=5)
+        tk.Button(topbar, text="Cerrar Sesión", bg='#FF6347', fg='white', font=("Arial", 10, "bold"), command=self.ventana.destroy).pack(side='right', padx=10, pady=5)
 
+        main_frame = tk.Frame(self.ventana, bg='white')
+        main_frame.pack(fill='both', expand=True, padx=20, pady=10)
 
-    tk.Button(topbar, text="Cerrar Sesión", bg='#FF6347', fg='white', font=("Arial", 10, "bold"), command=root.destroy).pack(side='right', padx=10, pady=5)
+        tk.Label(main_frame, text="¡PRÓXIMAS CITAS!", font=("Arial", 18, "bold"), fg="#1DA1F2", bg='white').pack(pady=(0, 10))
 
-  
-    main_frame = tk.Frame(root, bg=TABLE_BG)
-    main_frame.pack(fill='both', expand=True, padx=20, pady=10)
+        # Tabla tipo lista
+        columns = (
+            "Nombre", "Apellido", "Teléfono", "NSS", "Peso", "Altura", "Temperatura", "Fecha", "Hora"
+        )
+        self.tree = ttk.Treeview(main_frame, columns=columns, show="headings", height=20)
+        for col in columns:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, anchor="center", width=120)
+        self.tree.pack(fill='both', expand=True)
 
-    
-    phone_icon = tk.Label(main_frame, text="📞", font=("Arial", 18), bg=TABLE_BG)
-    phone_icon.pack(anchor='nw', pady=(10,0), padx=10)
+        self.tree.bind("<Double-1>", self.ver_detalle_cita)
 
-  
-    tk.Label(main_frame, text="¡PROXIMAS CITAS !", font=("Arial", 18, "bold"), fg="#1DA1F2", bg=TABLE_BG).pack(pady=(0,10))
+        self.cargar_citas()
 
-   
-    table_frame = tk.Frame(main_frame, bg=TABLE_BG, bd=2, relief='groove')
-    table_frame.pack(padx=10, pady=10)
+        footer = tk.Frame(self.ventana, bg='#F5F5F5', height=40, bd=1, relief='groove')
+        footer.pack(fill='x', side='bottom')
+        tk.Label(footer, text="Pie de página", bg='#F5F5F5', fg='black', font=("Arial", 14, "bold")).pack(pady=5)
 
-    days = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"]
-    hours = ["00:00"] * 8
+        self.ventana.mainloop()
 
-  
-    tk.Label(table_frame, text="", bg=TABLE_BG).grid(row=0, column=0, padx=5, pady=5)
-    for i, day in enumerate(days):
-        tk.Label(table_frame, text=day, bg=TABLE_BG, font=("Arial", 10, "bold")).grid(row=0, column=i+1, padx=8, pady=5)
+    def cargar_citas(self):
+        for row in self.tree.get_children():
+            self.tree.delete(row)
 
-  
-    for r in range(1, 9):
-        tk.Label(table_frame, text="00:00", bg=TIME_BG, fg=TIME_FG, font=("Arial", 10, "bold")).grid(row=r, column=0, padx=5, pady=5, sticky='nsew')
-        for c in range(1, 7):
-            tk.Label(table_frame, bg=CELL_BG, width=12, height=2, bd=1, relief='flat').grid(row=r, column=c, padx=4, pady=4, sticky='nsew')
+        conn = conexionDB()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                SELECT Nombre_paciente, Apellido_paciente, telefono_paciente, NSS_paciente,
+                       Peso_paciente, Altura_paciente, temperatura_paciente,
+                       fecha_cita, hora_cita
+                FROM citas
+                ORDER BY fecha_cita, hora_cita
+            """)
+            for row in cursor.fetchall():
+                nombre, apellido, telefono, nss, peso, altura, temperatura, fecha, hora = row
+                fecha_str = fecha.strftime("%d/%m/%Y")
+                if hasattr(hora, 'strftime'):
+                    hora_str = hora.strftime("%H:%M")
+                elif hasattr(hora, 'seconds'):
+                    total_seconds = int(hora.total_seconds())
+                    hours = total_seconds // 3600
+                    minutes = (total_seconds % 3600) // 60
+                    hora_str = f"{hours:02d}:{minutes:02d}"
+                else:
+                    hora_str = str(hora)
+                values = (nombre, apellido, telefono, nss, f"{peso} kg", f"{altura} m", f"{temperatura} °C", fecha_str, hora_str)
+                self.tree.insert("", "end", values=values)
+        except Exception as e:
+            messagebox.showerror("Error al cargar citas", str(e))
+        finally:
+            cursor.close()
+            conn.close()
 
+    def ver_detalle_cita(self, event):
+        item = self.tree.focus()
+        if not item:
+            return
+        values = self.tree.item(item, "values")
+        mensaje = (
+            f"Nombre: {values[0]} {values[1]}\n"
+            f"Teléfono: {values[2]}\n"
+            f"NSS: {values[3]}\n"
+            f"Peso: {values[4]}\n"
+            f"Altura: {values[5]}\n"
+            f"Temperatura: {values[6]}\n"
+            f"Fecha: {values[7]}\n"
+            f"Hora: {values[8]}"
+        )
+        messagebox.showinfo("Detalle de la cita", mensaje)
 
-    footer = tk.Frame(root, bg=FOOTER_BG, height=40, bd=1, relief='groove')
-    footer.pack(fill='x', side='bottom')
-    tk.Label(footer, text="Pie de pagina", bg=FOOTER_BG, fg='black', font=("Arial", 14, "bold")).pack(pady=5)

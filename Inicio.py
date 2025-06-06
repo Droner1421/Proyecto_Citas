@@ -4,7 +4,7 @@ from PIL import Image, ImageTk
 import cv2
 from ffpyplayer.player import MediaPlayer
 from conexionDB import conexionDB
-from ENF import ventanaENF
+from ENF import ProximasCitasVentana
 
 HEADER_BG = '#8FD3F4'
 BUTTON_REG_BG = '#AAF0D1'
@@ -61,7 +61,7 @@ class Login:
             messagebox.showinfo("Éxito", "Inicio de sesión correcto")
             self.win.destroy()
             self.parent.destroy()
-            ventanaENF()
+            ProximasCitasVentana()
         else:
             messagebox.showerror("Error", "Usuario o contraseña incorrectos")
         cursor.close()
@@ -185,10 +185,10 @@ class video:
                 self.audio_muted = False
 
     def ventana_login(self):
-        Login(self.ventana, ventanaENF)
+        Login(self.ventana, ProximasCitasVentana)
 
     def ventana_register(self):
-        Registro(self.ventana, ventanaENF)
+        Registro(self.ventana, ProximasCitasVentana)
 
     def iniciar(self):
         self.ventana = tk.Tk()

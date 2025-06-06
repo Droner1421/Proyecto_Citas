@@ -23,7 +23,7 @@ app = dash.Dash(__name__)
 app.title = "Dashboard de Citas Médicas"
 
 app.layout = html.Div([
-    html.H1("Dashboard de Citas Médicas", style={'textAlign': 'center'}),
+    html.H1("Grafica", style={'textAlign': 'center'}),
     dcc.Graph(
         id='grafico',
         figure=px.bar(
@@ -34,7 +34,7 @@ app.layout = html.Div([
             labels={'Fecha': 'Fecha', 'Número de citas': 'Citas'},
             template='plotly_white',
             color='Número de citas',
-            color_continuous_scale='Viridis',
+            color_continuous_scale='Plasma',
         )
     )
 ])
@@ -49,5 +49,5 @@ if __name__ == '__main__':
     dash_thread.daemon = True
     dash_thread.start()
 
-    webview.create_window("Dashboard de Citas", "http://127.0.0.1:8050", width=900, height=600)
+    webview.create_window("Grafica", "http://127.0.0.1:8050", width=900, height=600)
     webview.start()
