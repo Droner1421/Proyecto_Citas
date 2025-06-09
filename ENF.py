@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from conexionDB import conexionDB
 from Regis_Pas import RegistroCitaVentana
+from Dashboard_2 import grafica  
 
 class ProximasCitasVentana:
     def __init__(self):
@@ -29,10 +30,10 @@ class ProximasCitasVentana:
 
         op_btn = tk.Menubutton(topbar, text="Operaciones", bg='#AAF0D1', fg='#000000', font=("Arial", 10, "bold"), relief='raised')
         op_menu = tk.Menu(op_btn, tearoff=0)
-        # Solo pasa self.ventana si tu RegistroCitaVentana solo acepta un argumento
-        op_menu.add_command(label="Nueva Cita", command=lambda: RegistroCitaVentana(self.ventana))
+        op_menu.add_command(label="Nueva Cita", command=lambda: RegistroCitaVentana(self.ventana, on_close=self.cargar_citas))
         op_menu.add_command(label="Buscar Cita", command=lambda: messagebox.showinfo("Buscar Cita", "Funcionalidad no implementada"))
-        op_menu.add_command(label="Dashboard", command=lambda: messagebox.showinfo("Dashboard", "Funcionalidad no implementada"))
+        op_menu.add_command(label="Dashboard", command=lambda: grafica())
+      
         op_btn.config(menu=op_menu)
         op_btn.pack(side='left', padx=15, pady=5)
 
@@ -43,7 +44,6 @@ class ProximasCitasVentana:
 
         tk.Label(main_frame, text="¡PRÓXIMAS CITAS!", font=("Arial", 18, "bold"), fg="#1DA1F2", bg='white').pack(pady=(0, 10))
 
-        # Tabla tipo lista
         columns = (
             "Nombre", "Apellido", "Teléfono", "NSS", "Peso", "Altura", "Temperatura", "Fecha", "Hora"
         )
@@ -113,4 +113,5 @@ class ProximasCitasVentana:
             f"Hora: {values[8]}"
         )
         messagebox.showinfo("Detalle de la cita", mensaje)
-
+if __name__ == "__main__":
+    ProximasCitasVentana()
