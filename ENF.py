@@ -7,6 +7,23 @@ from Dashboard_2 import grafica
 class ProximasCitasVentana:
     def __init__(self):
         self.crear_interfaz()
+    def Filtro_de_busqueda(self):
+        conexion = conexionDB()
+        cursor = conexion.cursor()
+        try:
+            cursor.execute("SELECT * FROM citas WHERE fecha_cita >= CURDATE() ORDER BY fecha_cita, hora_cita")
+            citas = cursor.fetchall()
+            if not citas:
+                messagebox.showinfo("Información", "No hay citas próximas.")
+                return
+            for cita in citas:
+                self.tree.insert("", "end", values=cita)
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al cargar citas: {e}")
+        finally:
+            cursor.close()
+            conexion.close()
+            
 
     def crear_interfaz(self):
         self.ventana = tk.Tk()
@@ -27,7 +44,10 @@ class ProximasCitasVentana:
 
         topbar = tk.Frame(self.ventana, bg='#F5F5F5', height=40, bd=1, relief='groove')
         topbar.pack(fill='x')
-
+        Ingresa_busqueda = tk.Entry(topbar, width=30, font=("Arial", 12), bg='white', fg='black')
+        Ingresa_busqueda.pack(side='left', padx=10, pady=5)
+        tk.Button(topbar, text="Buscar", bg='#1DA1F2', fg='white', font=("Arial", 10, "bold"), command=self.Filtro_de_busqueda).pack(side='left', padx=5, pady=5)
+        tk.Button(topbar, text="Limpiar", bg='#FF6347', fg='white', font=("Arial", 10, "bold"), command=lambda: Ingresa_busqueda.delete(0, 'end')).pack(side='left', padx=5, pady=5)
         op_btn = tk.Menubutton(topbar, text="Operaciones", bg='#AAF0D1', fg='#000000', font=("Arial", 10, "bold"), relief='raised')
         op_menu = tk.Menu(op_btn, tearoff=0)
         op_menu.add_command(label="Nueva Cita", command=lambda: RegistroCitaVentana(self.ventana, on_close=self.cargar_citas))
