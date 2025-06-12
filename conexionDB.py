@@ -7,7 +7,7 @@ def conexionDB():
         host='localhost',
         user='root',
         password='',
-        database='prueba',
+        database='citasyra',
     )
     return conexio
 
