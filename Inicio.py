@@ -5,6 +5,7 @@ import cv2
 from ffpyplayer.player import MediaPlayer
 from conexionDB import conexionDB
 from ENF import ProximasCitasVentana
+from DOC import vistadoc
 
 HEADER_BG = '#8FD3F4'
 BUTTON_REG_BG = '#AAF0D1'
@@ -16,43 +17,56 @@ FOOTER_BG = '#D3D3D3'
 POPUP_BORDER = '#AAF0D1'
 POPUP_BG = '#FFFFFF'
 
+# Conexion a la base de datos y peticiones
 
 class Autentificacion:
     def __init__(self):
-
         self.conexion = conexionDB()
 
-    def Login(self, Usuario, Contrasena, ventana):
+    #Login y saber si es doctor o recepcionista
+    def Login(self, Usuario, Contrasena, ventana_login, ventana_principal, destroy_video):
         cursor = self.conexion.cursor()
-        cursor.execute("Select * from usuarios where Usuarios = %s and contrasena = %s", (Usuario, Contrasena))
-        if cursor.fetchone():
-            messagebox.showinfo("Login exitoso", "Gracias por iniciar sesión")
-            ventana.destroy()
-            ProximasCitasVentana()
-
+        cursor.execute("SELECT id, tipo_usuario FROM personal WHERE usuario = %s AND contrasena = %s", (Usuario, Contrasena))
+        result = cursor.fetchone()
+        if result:
+            id_usuario, tipo_usuario = result
+            if tipo_usuario == "medico":
+                messagebox.showinfo("Login exitoso", "Gracias por iniciar sesión como médico")
+                destroy_video()
+                ventana_login.destroy()
+                ventana_principal.destroy()
+                # Mandar id del usuario a la vista de médico
+                vistadoc(id_usuario)
+            else:
+                messagebox.showinfo("Login exitoso", "Gracias por iniciar sesión como recepcionista")
+                destroy_video()
+                ventana_login.destroy()
+                ventana_principal.destroy()
+                ProximasCitasVentana(id_usuario)
         else:
             messagebox.showerror("Error", "Usuario o contraseña incorrectos")
 
-
-    def Registro(self, nombre, Usuario, Contrasena, confirmcontrasena, TipoUsuario, Telefono, ventana):
-
-        if not Usuario or not Contrasena or not nombre or not confirmcontrasena or not TipoUsuario or not Telefono:
+    def Registro(self, nombre, Usuario, Contrasena, confirmcontrasena, TipoUsuario, Telefono, apellido_materno, apellido_paterno, ventana):
+        if not Usuario or not Contrasena or not nombre or not confirmcontrasena or not TipoUsuario or not Telefono or not apellido_paterno or not apellido_materno:
             messagebox.showerror("Error", "Por favor, rellena todos los campos")
             return
         if Contrasena != confirmcontrasena:
             messagebox.showerror("Error", "Las contraseñas no coinciden")
             return
         cursor = self.conexion.cursor()
-        cursor.execute ("Select * from usuarios where Usuarios = %s and contrasena = %s", (Usuario, Contrasena))
+        cursor.execute("Select * from personal where usuario = %s", (Usuario,))
         if cursor.fetchone():
             messagebox.showerror("Error", "El usuario ya existe")
             return
         else:
-            cursor.execute ("Insert into usuarios (Usuarios, Contrasena, Nombre, TipoUsuario, Telefono) values (%s, %s, %s, %s, %s)", (Usuario, Contrasena, nombre, TipoUsuario, Telefono))
+            cursor.execute(
+                "Insert into personal (usuario, contrasena, nombre, apellido_paterno, apellido_materno, tipo_usuario, telefono) values (%s, %s, %s, %s, %s, %s, %s)",
+                (Usuario, Contrasena, nombre, apellido_paterno, apellido_materno, TipoUsuario, Telefono)
+            )
             self.conexion.commit()
             messagebox.showinfo("Registro exitoso", "Gracias por registrarte")
             ventana.destroy()
-        
+
 
 
 
@@ -63,7 +77,7 @@ class Autentificacion:
 
  
 
-
+# Video y audio de la aplicación
 class Video:
     def __init__(self, video_label, mute_button, video_path):
         self.cap = cv2.VideoCapture(video_path)
@@ -85,8 +99,8 @@ class Video:
             self.video_label.configure(image=imgtk)
             self.video_label.after(30, self.actualizar_frame)
         else:
-            self.cap.release()
-            self.media_player.close_player()
+            self.detener()
+  
 
     def mutear_audio(self):
         if not self.audio_muted:
@@ -98,8 +112,17 @@ class Video:
             self.audio_muted = False
             self.mute_button.config(text="Mutear audio")
 
+    def detener(self):
+        if hasattr(self, 'cap') and self.cap:
+            self.cap.release()
+        if hasattr(self, 'media_player') and self.media_player:
+            self.media_player.close_player()
+        if hasattr(self, 'video_label') and self.video_label:
+            if hasattr(self, 'after_id'):
+                self.video_label.after_cancel(self.after_id)
 
 
+# class vistaapp
 class vistaapp:
 
     def __init__(self):
@@ -111,7 +134,9 @@ class vistaapp:
         
         pass
 
-
+    def destruir_video(self):
+        if hasattr(self, 'video'):
+            self.video.detener()
     def vista_inicio(self):
         self.ventana = tk.Tk()
         self.ventana.title("Sistema de Salud")
@@ -130,7 +155,7 @@ class vistaapp:
         tk.Label(header, text="Nombre institucion", bg=HEADER_BG, fg='black', font=header_font).pack(side='left', padx=20)
         login_top = tk.Label(header, text="Inicio de sesión", bg=HEADER_BG, fg='black', font=faq_font, cursor="hand2")
         login_top.pack(side='right', padx=20)
-        login_top.bind("<Button-1>", lambda e: self.abrir_login())  # solo llamada a otra vista o controlador
+        login_top.bind("<Button-1>", lambda e: self.login_vista())  # solo llamada a otra vista o controlador
 
         # Cuerpo principal
         main_frame = tk.Frame(self.ventana, bg='white')
@@ -222,7 +247,7 @@ class vistaapp:
         self.entry_pass.pack(pady=(0,5), ipadx=50, ipady=5)
 
         tk.Label(inner, text="olvidaste contraseña", font=label_font, bg=POPUP_BG, cursor="hand2").pack(anchor='e', padx=20)
-        tk.Button(inner, text="Iniciar sesión", bg=BUTTON_REG_BG, fg=BUTTON_FG, font=label_font, bd=0, relief='ridge',command= lambda: self.aut.Login(self.entry_user.get(), self.entry_pass.get(), self.login)).pack(pady=20, ipadx=20, ipady=5)
+        tk.Button(inner, text="Iniciar sesión", bg=BUTTON_REG_BG, fg=BUTTON_FG, font=label_font, bd=0, relief='ridge', command=lambda: self.aut.Login(self.entry_user.get(), self.entry_pass.get(), self.login, self.ventana, self.destruir_video)).pack(pady=20, ipadx=20, ipady=5)
         footer_text = tk.Label(inner, text="¿Aun no tienes cuenta? registrate", font=label_font, bg=POPUP_BG, cursor="hand2")
         footer_text.pack(pady=(10,0))
     
@@ -234,27 +259,39 @@ class vistaapp:
     def Registro_vista(self):
         self.Registro = tk.Toplevel()
         self.Registro.title = "Registro"
-        self.Registro.geometry('400x450')
+        self.Registro.geometry('400x550')
         self.Registro.configure(bg=POPUP_BORDER)
 
         title_font = font.Font(family="Helvetica", size=18, weight="bold", slant="italic")
         label_font = font.Font(family="Helvetica", size=12)
         inner = tk.Frame(self.Registro, bg=POPUP_BG, bd=2, relief='solid')
-        inner.place(relx=0.5, rely=0.5, anchor='center', width=360, height=450) 
+        inner.place(relx=0.5, rely=0.5, anchor='center', width=360, height=500) 
         tk.Label(inner, text="Inicio de sesión", font=title_font, bg=POPUP_BG).pack(pady=(20,10))
 
-        # Campo nombre completo
+        # Campo nombre 
         self.entry_nombre = tk.Entry(inner, font=label_font, bg=POPUP_BG)
-        self.entry_nombre.insert(0, "Nombre completo")
+        self.entry_nombre.insert(0, "Nombre(s)")
         self.entry_nombre.bind("<FocusIn>", lambda e: self.entry_nombre.delete(0, tk.END) if self.entry_nombre.get() == "Nombre completo" else None)
         self.entry_nombre.pack(pady=(0,10), ipadx=50, ipady=5)
+              
+                # Campo apellido_paterno
+        self.entry_apeellido_paterno = tk.Entry(inner, font=label_font, bg=POPUP_BG)
+        self.entry_apeellido_paterno.insert(0, "Apellido paterno")
+        self.entry_apeellido_paterno.bind("<FocusIn>", lambda e: self.entry_apeellido_paterno.delete(0, tk.END) if self.entry_apeellido_paterno.get() == "Apellido paterno" else None)
+        self.entry_apeellido_paterno.pack(pady=(0,10), ipadx=50, ipady=5)
+
+
+         # Campo apellido_materno
+        self.entry_apeellido_materno = tk.Entry(inner, font=label_font, bg=POPUP_BG)
+        self.entry_apeellido_materno.insert(0, "Apellido materno")
+        self.entry_apeellido_materno.bind("<FocusIn>", lambda e: self.entry_apeellido_materno.delete(0, tk.END) if self.entry_apeellido_materno.get() == "Apellido materno" else None)
+        self.entry_apeellido_materno.pack(pady=(0,10), ipadx=50, ipady=5)
 
         #Telefono
         self.entry_telefono = tk.Entry(inner, font=label_font, bg=POPUP_BG)
         self.entry_telefono.insert(0, "Telefono")
         self.entry_telefono.bind("<FocusIn>", lambda e: self.entry_telefono.delete(0, tk.END) if self.entry_telefono.get() == "Telefono" else None)
         self.entry_telefono.pack(pady=(0,10), ipadx=50, ipady=5)
-
 
 
 
@@ -293,7 +330,18 @@ class vistaapp:
         radio_frame.pack(pady=(0,10))
 
         tk.Label(inner, text="olvidaste contraseña", font=label_font, bg=POPUP_BG, cursor="hand2").pack(anchor='e', padx=20)
-        tk.Button(inner, text="Registrarse", bg=BUTTON_REG_BG, fg=BUTTON_FG, font=label_font, bd=0, relief='ridge',command=lambda: self.aut.Registro(self.entry_nombre.get(), self.entry_user.get(), self.entry_pass.get(), self.entry_pass2.get(), self.tipo_usuario.get(), self.entry_telefono.get(), self.Registro)).pack(pady=20, ipadx=20, ipady=5)
+        tk.Button(inner, text="Registrarse", bg=BUTTON_REG_BG, fg=BUTTON_FG, font=label_font, bd=0, relief='ridge',command=lambda: self.aut.Registro(
+                self.entry_nombre.get(),
+                self.entry_user.get(),
+                self.entry_pass.get(),
+                self.entry_pass2.get(),
+                self.tipo_usuario.get(),
+                self.entry_telefono.get(),
+                self.entry_apeellido_materno.get(),
+                self.entry_apeellido_paterno.get(),
+                self.Registro
+            )
+        ).pack(pady=20, ipadx=20, ipady=5)
 
 
 
@@ -306,9 +354,9 @@ class vistaapp:
 def main():
    app = vistaapp()
 
-
 if __name__ == "__main__":
-    main()
+   main()
+
 
 
 
