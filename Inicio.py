@@ -4,7 +4,8 @@ from PIL import Image, ImageTk
 import cv2
 from ffpyplayer.player import MediaPlayer
 from conexionDB import conexionDB
-from ENF import ventanaENF
+from ENF import ProximasCitasVentana
+from DOC import vistadoc
 
 HEADER_BG = '#8FD3F4'
 BUTTON_REG_BG = '#AAF0D1'
@@ -16,186 +17,144 @@ FOOTER_BG = '#D3D3D3'
 POPUP_BORDER = '#AAF0D1'
 POPUP_BG = '#FFFFFF'
 
-class Login:
-    def __init__(self, parent, on_success):
-        self.parent = parent
-        self.on_success = on_success
-        self.win = tk.Toplevel(parent)
-        self.win.title("Inicio de sesión")
-        self.win.geometry('400x350')
-        self.win.configure(bg=POPUP_BORDER)
-        self.Login_vista()
+# Conexion a la base de datos
+class Autentificacion:
+    def __init__(self):
+        self.conexion = conexionDB()
 
-    def Login_vista(self):
-        title_font = font.Font(family="Helvetica", size=18, weight="bold", slant="italic")
-        label_font = font.Font(family="Helvetica", size=12)
-        inner = tk.Frame(self.win, bg=POPUP_BG, bd=2, relief='solid')
-        inner.place(relx=0.5, rely=0.5, anchor='center', width=360, height=310)
-        tk.Label(inner, text="Inicio de sesión", font=title_font, bg=POPUP_BG).pack(pady=(20,10))
-        self.entry_user = tk.Entry(inner, font=label_font)
-        self.entry_user.insert(0, "nombre usuario")
-        self.entry_user.bind("<FocusIn>", lambda e: self.entry_user.delete(0, tk.END))
-        self.entry_user.pack(pady=(0,10), ipadx=50, ipady=5)
-        self.entry_pass = tk.Entry(inner, font=label_font)
-        self.entry_pass.insert(0, "Contraseña")
-        self.entry_pass.bind("<FocusIn>", self.Limpiar_password)
-        self.entry_pass.pack(pady=(0,5), ipadx=50, ipady=5)
-        tk.Label(inner, text="olvidaste contraseña", font=label_font, bg=POPUP_BG, cursor="hand2").pack(anchor='e', padx=20)
-        tk.Button(inner, text="Iniciar sesión", bg=BUTTON_REG_BG, fg=BUTTON_FG, font=label_font, bd=0, relief='ridge', command=self.Login_PeticionDB).pack(pady=20, ipadx=20, ipady=5)
-        footer_text = tk.Label(inner, text="¿Aun no tienes cuenta? registrate", font=label_font, bg=POPUP_BG, cursor="hand2")
-        footer_text.pack(pady=(10,0))
-        footer_text.bind("<Button-1>", lambda e: Registro(self.parent, self.on_success))
-
-    def Limpiar_password(self, e):
-        self.entry_pass.delete(0, tk.END)
-        self.entry_pass.config(show='*')
-
-    def Login_PeticionDB(self):
-        usuario = self.entry_user.get()
-        contrasena = self.entry_pass.get()
-        conn = conexionDB()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM login WHERE usuario=%s AND contrasena=%s", (usuario, contrasena))
+    #Login y saber si es doctor o recepcionista
+    def Login(self, Usuario, Contrasena, ventana_login, ventana_principal, destroy_video):
+        cursor = self.conexion.cursor()
+        cursor.execute("SELECT id, tipo_usuario FROM personal WHERE usuario = %s AND contrasena = %s", (Usuario, Contrasena))
         result = cursor.fetchone()
         if result:
-            messagebox.showinfo("Éxito", "Inicio de sesión correcto")
-            self.win.destroy()
-            self.parent.destroy()
-            ventanaENF()
+            id_usuario, tipo_usuario = result
+            #comprobar si el usuario es medico o recepcionista
+            if tipo_usuario == "medico":
+                messagebox.showinfo("Login exitoso", "Gracias por iniciar sesión como médico")
+                destroy_video()
+                ventana_login.destroy()
+                ventana_principal.destroy()
+                # Mandar id del usuario a la vista de médico
+                vistadoc(id_usuario)
+            else:
+                messagebox.showinfo("Login exitoso", "Gracias por iniciar sesión como recepcionista")
+                destroy_video()
+                ventana_login.destroy()
+                ventana_principal.destroy()
+                ProximasCitasVentana(id_usuario)
         else:
+            #mensaje de error si el usuario o contraseña son incorrectos
             messagebox.showerror("Error", "Usuario o contraseña incorrectos")
-        cursor.close()
-        conn.close()
 
-class Registro:
-    def __init__(self, parent, on_success):
-        self.parent = parent
-        self.on_success = on_success
-        self.win = tk.Toplevel(parent)
-        self.win.title("Registro")
-        self.win.geometry('400x350')
-        self.win.configure(bg=POPUP_BORDER)
-        self.Login_vista()
-
-    def Login_vista(self):
-        title_font = font.Font(family="Helvetica", size=18, weight="bold", slant="italic")
-        label_font = font.Font(family="Helvetica", size=12)
-        inner = tk.Frame(self.win, bg=POPUP_BG, bd=2, relief='solid')
-        inner.place(relx=0.5, rely=0.5, anchor='center', width=360, height=310)
-        tk.Label(inner, text="Registro", font=title_font, bg=POPUP_BG).pack(pady=(20,10))
-        self.entry_user = tk.Entry(inner, font=label_font)
-        self.entry_user.insert(0, "nombre usuario")
-        self.entry_user.bind("<FocusIn>", lambda e: self.entry_user.delete(0, tk.END))
-        self.entry_user.pack(pady=(0,10), ipadx=50, ipady=5)
-        self.entry_pass = tk.Entry(inner, font=label_font)
-        self.entry_pass.insert(0, "Contraseña")
-        self.entry_pass.bind("<FocusIn>", self.Limpiar_password)
-        self.entry_pass.pack(pady=(0,10), ipadx=50, ipady=5)
-        self.entry_confirm = tk.Entry(inner, font=label_font)
-        self.entry_confirm.insert(0, "Confirmar contraseña")
-        self.entry_confirm.bind("<FocusIn>", self.Limpiar_Confirmacion)
-        self.entry_confirm.pack(pady=(0,10), ipadx=50, ipady=5)
-        tk.Button(inner, text="Registrarse", bg=BUTTON_REG_BG, fg=BUTTON_FG, font=label_font, bd=0, relief='ridge', command=self.register_action).pack(pady=20, ipadx=20, ipady=5)
-        login_text = tk.Label(inner, text="¿Ya tienes cuenta? Iniciar sesión", font=label_font, bg=POPUP_BG, cursor="hand2")
-        login_text.pack(pady=(10,0))
-        login_text.bind("<Button-1>", lambda e: Login(self.parent, self.on_success))
-
-    def Limpiar_password(self, e):
-        self.entry_pass.delete(0, tk.END)
-        self.entry_pass.config(show='*')
-
-    def Limpiar_Confirmacion(self, e):
-        self.entry_confirm.delete(0, tk.END)
-        self.entry_confirm.config(show='*')
-
-    def register_action(self):
-        usuario = self.entry_user.get()
-        contrasena = self.entry_pass.get()
-        confirmar = self.entry_confirm.get()
-        if not usuario or not contrasena or not confirmar or usuario == "nombre usuario" or contrasena == "Contraseña" or confirmar == "Confirmar contraseña":
-            messagebox.showerror("Error", "Completa todos los campos")
+    # Método para registrar un nuevo usuario en la base de datos
+    def Registro(self, nombre, Usuario, Contrasena, confirmcontrasena, TipoUsuario, Telefono, apellido_materno, apellido_paterno, ventana):
+        # Verifica que todos los campos estén llenos
+        if not Usuario or not Contrasena or not nombre or not confirmcontrasena or not TipoUsuario or not Telefono or not apellido_paterno or not apellido_materno:
+            messagebox.showerror("Error", "Por favor, rellena todos los campos")
             return
-        if contrasena != confirmar:
+        # Verifica que las contraseñas coincidan
+        if Contrasena != confirmcontrasena:
             messagebox.showerror("Error", "Las contraseñas no coinciden")
             return
-        conn = conexionDB()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM login WHERE usuario=%s", (usuario,))
+        cursor = self.conexion.cursor()
+        # Verifica si el usuario ya existe en la base de datos
+        cursor.execute("Select * from personal where usuario = %s", (Usuario,))
         if cursor.fetchone():
             messagebox.showerror("Error", "El usuario ya existe")
-        else:
-            cursor.execute("INSERT INTO login (usuario, contrasena) VALUES (%s, %s)", (usuario, contrasena))
-            conn.commit()
-            messagebox.showinfo("Éxito", "Registro exitoso")
-            self.win.destroy()
-        cursor.close()
-        conn.close()
-
-class video:
-    def __init__(self):
-        self.cap = None
-        self.player = None
-        self.video_label = None
-        self.video_iniciarning = True
-        self.audio_muted = False
-
-    def Audio(self, video_path):
-        return MediaPlayer(video_path)
-
-    def Frames(self):
-        if not self.video_iniciarning:
             return
+        else:
+            # Inserta el nuevo usuario en la base de datos
+            cursor.execute(
+                "Insert into personal (usuario, contrasena, nombre, apellido_paterno, apellido_materno, tipo_usuario, telefono) values (%s, %s, %s, %s, %s, %s, %s)",
+                (Usuario, Contrasena, nombre, apellido_paterno, apellido_materno, TipoUsuario, Telefono)
+            )
+            self.conexion.commit()
+            messagebox.showinfo("Registro exitoso", "Gracias por registrarte")
+            ventana.destroy()
+
+
+
+
+
+
+
+
+
+ 
+
+# Video y audio de la aplicación
+class Video:
+    def __init__(self, video_label, mute_button, video_path):
+        self.cap = cv2.VideoCapture(video_path)
+        self.media_player = MediaPlayer(video_path)
+        self.video_label = video_label
+        self.mute_button = mute_button
+        self.audio_muted = False
+        self.mute_button.config(command=self.mutear_audio)
+        self.actualizar_frame()
+     #actuliza los frames del video
+    def actualizar_frame(self):
         ret, frame = self.cap.read()
-        audio_frame, val = self.player.get_frame()
+        audio_frame, val = self.media_player.get_frame()
         if ret:
-            frame = cv2.resize(frame, (400, 225))
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            img = Image.fromarray(frame)
+            img = Image.fromarray(frame).resize((400, 250), Image.LANCZOS)
             imgtk = ImageTk.PhotoImage(image=img)
             self.video_label.imgtk = imgtk
             self.video_label.configure(image=imgtk)
-        if val != 'eof' and self.video_iniciarning:
-            self.video_label.after_id = self.video_label.after(15, self.Frames)
+            self.video_label.after(30, self.actualizar_frame)
         else:
-            if self.cap is not None:
-                self.cap.release()
+            self.detener()
+  
 
-    def detener_video(self):
-        self.video_iniciarning = False
-        if self.cap is not None:
-            self.cap.release()
-        if self.player is not None:
-            self.player.set_volume(0)
-        try:
-            if self.video_label is not None and self.video_label.winfo_exists():
-                after_id = getattr(self.video_label, "after_id", None)
-                if after_id is not None:
-                    self.video_label.after_cancel(after_id)
-                self.video_label.config(image='')
-        except tk.TclError:
-            pass
-
+    
     def mutear_audio(self):
-        if self.player is not None:
-            if not self.audio_muted:
-                self.player.set_volume(0)
-                self.audio_muted = True
-            else:
-                self.player.set_volume(100)
-                self.audio_muted = False
+        if not self.audio_muted:
+            # Si el audio no está muteado, lo silencia
+            self.media_player.set_volume(0)
+            self.audio_muted = True
+            self.mute_button.config(text="Desmutear audio")
+        else:
+            # Si el audio está muteado, lo activa
+            self.media_player.set_volume(1)
+            self.audio_muted = False
+            self.mute_button.config(text="Mutear audio")
 
-    def ventana_login(self):
-        Login(self.ventana, ventanaENF)
+    def detener(self):
+        if hasattr(self, 'cap') and self.cap:
+            self.cap.release()
+        if hasattr(self, 'media_player') and self.media_player:
+            self.media_player.close_player()
+        if hasattr(self, 'video_label') and self.video_label:
+            if hasattr(self, 'after_id'):
+                self.video_label.after_cancel(self.after_id)
 
-    def ventana_register(self):
-        Registro(self.ventana, ventanaENF)
 
-    def iniciar(self):
+# class vistaapp
+class vistaapp:
+
+    def __init__(self):
+        self.aut = Autentificacion()
+        self.vista_inicio()
+        self.video_frames = []
+        self.audio_muted = False
+        
+        
+        pass
+
+    def destruir_video(self):
+        #verificar si self tiene un atributo llamado video
+        if hasattr(self, 'video'):
+            # si existe llama al método detener
+            self.video.detener()
+
+
+    def vista_inicio(self):
         self.ventana = tk.Tk()
         self.ventana.title("Sistema de Salud")
         self.ventana.geometry('800x600')
         self.ventana.configure(bg='white')
-
         header_font = font.Font(family="Helvetica", size=16, weight="bold")
         title_font = font.Font(family="Helvetica", size=24, weight="bold")
         subtitle_font = font.Font(family="Helvetica", size=14, weight="bold")
@@ -203,55 +162,253 @@ class video:
 
         header = tk.Frame(self.ventana, bg=HEADER_BG, height=50)
         header.pack(fill='x')
-        logo = tk.Canvas(header, width=40, height=40, bg='white', highlightthickness=1)
-        logo.create_oval(5,5,35,35)
-        logo.pack(side='left', padx=10, pady=5)
-        tk.Label(header, text="Nombre institucion", bg=HEADER_BG, fg='black', font=header_font).pack(side='left', padx=20)
+        # Logo
+        logo_image = Image.open("logo.jpg")  
+        logo_image = logo_image.resize((50, 50), Image.LANCZOS)
+        logo = ImageTk.PhotoImage(logo_image)
+        logo_label = tk.Label(header, image=logo, bg=HEADER_BG)
+        logo_label.image = logo 
+        logo_label.pack(side='left', padx=10)
+        tk.Label(header, text="Casa de salud La Huanica", bg=HEADER_BG, fg='black', font=header_font).pack(side='left', padx=20)
         login_top = tk.Label(header, text="Inicio de sesión", bg=HEADER_BG, fg='black', font=faq_font, cursor="hand2")
         login_top.pack(side='right', padx=20)
-        login_top.bind("<Button-1>", lambda e: self.ventana_login())
+        login_top.bind("<Button-1>", lambda e: self.login_vista())  
 
+        # Cuerpo principal
         main_frame = tk.Frame(self.ventana, bg='white')
         main_frame.pack(fill='both', expand=True, padx=10, pady=10)
-        left_frame = tk.Frame(main_frame, bg=CONTAINER_BG, bd=1, relief='solid')
-        left_frame.pack(side='left', fill='both', expand=True, padx=(0,5))
-        tk.Label(left_frame, text="BIENVENIDO AL", font=title_font, bg=CONTAINER_BG).pack(pady=(20,0))
-        tk.Label(left_frame, text="SISTEMA", font=font.Font(family="Helvetica", size=32, weight="bold"), fg=HEADER_BG, bg=CONTAINER_BG).pack(pady=(0,10))
-        tk.Label(left_frame, text="LEYENDA SOBRE SALUD", font=subtitle_font, bg=CONTAINER_BG).pack(pady=(0,20))
-        btn_reg = tk.Button(left_frame, text="Registrarse", bg=BUTTON_REG_BG, fg=BUTTON_FG, command=self.ventana_register)
-        btn_reg.pack(side='left', padx=(50,10), pady=20)
-        btn_open = tk.Button(left_frame, text="Iniciar sesión", bg=BUTTON_LOGIN_BG, fg=BUTTON_FG, command=self.ventana_login)
-        btn_open.pack(side='left', padx=10, pady=20)
 
+        # Panel izquierdo
+        left_frame = tk.Frame(main_frame, bg=CONTAINER_BG, bd=1, relief='solid')
+        left_frame.pack(side='left', fill='both', expand=True, padx=(0, 5))
+        tk.Label(left_frame, text="BIENVENIDO AL", font=title_font, bg=CONTAINER_BG).pack(pady=(20, 0))
+        tk.Label(left_frame, text="SISTEMA", font=font.Font(family="Helvetica", size=32, weight="bold"), fg=HEADER_BG, bg=CONTAINER_BG).pack(pady=(0, 10))
+        tk.Label(left_frame, text="LEYENDA SOBRE SALUD", font=subtitle_font, bg=CONTAINER_BG).pack(pady=(0, 20))
+
+        tk.Button(left_frame, text="Registrarse", bg=BUTTON_REG_BG, fg=BUTTON_FG, command=self.Registro_vista).pack(side='left', padx=(50, 10), pady=20)
+
+        # crear un botón para iniciar sesión en el panel izquierdo se le asigna un nombre y la funcion de abrir la ventana de login
+        tk.Button(left_frame, text="Iniciar sesión", bg=BUTTON_LOGIN_BG, fg=BUTTON_FG, command=self.login_vista).pack(side='left', padx=10, pady=20)
+
+        # Panel derecho
         right_frame = tk.Frame(main_frame, bg=CONTAINER_BG, bd=1, relief='solid')
-        right_frame.pack(side='left', fill='both', expand=True, padx=(5,0))
-        tk.Label(right_frame, text="Video de introducción", font=subtitle_font, bg=CONTAINER_BG).pack(pady=(20,10))
+        right_frame.pack(side='left', fill='both', expand=True, padx=(5, 0))
+        tk.Label(right_frame, text="Video de introducción", font=subtitle_font, bg=CONTAINER_BG).pack(pady=(20, 10))
 
         self.video_label = tk.Label(right_frame, bg='black')
         self.video_label.pack(pady=10)
-        btn_mute = tk.Button(right_frame, text="Mutear/Desmutear", bg="#FFD700", fg="black", command=self.mutear_audio)
-        btn_mute.pack(pady=5)
 
-        video_path = r"C:\Users\Gabriel\Documents\python\proyecto\Consulta en el médico para niños - Tipos de médicos - Estudios sociales _ Kids Academy.mp4"
-        self.cap = cv2.VideoCapture(video_path)
-        self.player = self.Audio(video_path)
-        self.video_iniciarning = True
-        self.audio_muted = False
-        self.Frames()
+        self.mute_button = tk.Button(
+            right_frame,
+            text="Mutear audio",
+            bg="#FFD700",
+            fg="black"
+        )
+        self.mute_button.pack(pady=5)
 
+        # video
+        self.video = Video(
+            self.video_label,
+            self.mute_button,
+            r"Consulta en el médico para niños - Tipos de médicos - Estudios sociales _ Kids Academy.mp4"
+        )
+
+        
+        
+
+
+
+  
         faq_frame = tk.Frame(self.ventana, bg=FAQ_BG)
         faq_frame.pack(fill='x', padx=10)
-        tk.Label(faq_frame, text="Preguntas Frecuentes", font=subtitle_font, bg=FAQ_BG).grid(row=0, column=0, sticky='w', pady=(10,5))
+        tk.Label(faq_frame, text="Preguntas Frecuentes", font=subtitle_font, bg=FAQ_BG).grid(row=0, column=0, sticky='w', pady=(10, 5))
         faqs = ["¿Cómo me registro?", "¿Cómo reprogramo mi cita?", "¿Qué documentos necesito?"]
         for i, text in enumerate(faqs, start=1):
-            tk.Label(faq_frame, text=f"\u25CA {text}", font=faq_font, bg=FAQ_BG).grid(row=(i//2)+1, column=(i-1)%2, sticky='w', padx=20, pady=2)
+            tk.Label(faq_frame, text=f"\u25CA {text}", font=faq_font, bg=FAQ_BG).grid(row=(i // 2) + 1, column=(i - 1) % 2, sticky='w', padx=20, pady=2)
+
 
         footer = tk.Frame(self.ventana, bg=FOOTER_BG, height=30)
         footer.pack(fill='x', side='bottom')
-        tk.Label(footer, text="Pie de pagina", bg=FOOTER_BG, fg='black', font=subtitle_font).pack(pady=5)
+        tk.Label(footer, text="", bg=FOOTER_BG, fg='black', font=subtitle_font).pack(pady=5)
 
+     
         self.ventana.mainloop()
 
+
+
+    def login_vista(self):
+        self.login = tk.Toplevel()
+        self.login.title = "Login"
+        self.login.geometry('400x400')
+        self.login.configure(bg=POPUP_BORDER)
+
+        title_font = font.Font(family="Helvetica", size=18, weight="bold", slant="italic")
+        label_font = font.Font(family="Helvetica", size=12)
+        inner = tk.Frame(self.login, bg=POPUP_BG, bd=2, relief='solid')
+        inner.place(relx=0.5, rely=0.5, anchor='center', width=360, height=350)
+        tk.Label(inner, text="Inicio de sesión", font=title_font, bg=POPUP_BG).pack(pady=(20,10))
+
+
+        # Campo usuario
+        # Crea un campo de entrada
+        self.entry_user = tk.Entry(inner, font=label_font, bg=POPUP_BG)
+        # Inserta el texto Usuario como texto por defecto
+        self.entry_user.insert(0, "Usuario")
+        # Elimina el texto al hacer clic en el campo
+        self.entry_user.bind("<FocusIn>", lambda e: self.entry_user.delete(0, tk.END) if self.entry_user.get() == "Usuario" else None)
+        # definir tamaño del campo
+        self.entry_user.pack(pady=(0,10), ipadx=50, ipady=5)
+
+        # Campo contraseña
+        self.entry_pass = tk.Entry(inner, font=label_font, bg=POPUP_BG, show="")
+        self.entry_pass.insert(0, "Contraseña")
+        def limpiar_pass(event):
+            if self.entry_pass.get() == "Contraseña":
+                self.entry_pass.delete(0, tk.END)
+                self.entry_pass.config(show="*")
+        self.entry_pass.bind("<FocusIn>", limpiar_pass)
+        self.entry_pass.pack(pady=(0,5), ipadx=50, ipady=5)
+
+        forgot_label = tk.Label(inner, text="olvidaste contraseña", font=label_font, bg=POPUP_BG, cursor="hand2")
+        forgot_label.pack(anchor='e', padx=20)
+        forgot_label.bind("<Button-1>", lambda e: messagebox.showinfo("Recuperar contraseña", "Por favor, contacta al desarrollador para recuperar tu contraseña."))
+        tk.Button(inner, text="Iniciar sesión", bg=BUTTON_REG_BG, fg=BUTTON_FG, font=label_font, bd=0, relief='ridge', command=lambda: self.aut.Login(self.entry_user.get(), self.entry_pass.get(), self.login, self.ventana, self.destruir_video)).pack(pady=20, ipadx=20, ipady=5)
+        footer_text = tk.Label(inner, text="¿Aun no tienes cuenta? registrate", font=label_font, bg=POPUP_BG, cursor="hand2")
+        footer_text.pack(pady=(10,0))
+        #abrir registro y cerrar login
+        footer_text.bind("<Button-1>", lambda e: (self.Registro_vista(), self.login.destroy()))
+        
+
+
+
+
+       
+
+
+ 
+
+
+    def Registro_vista(self):
+        self.Registro = tk.Toplevel()
+        self.Registro.title = "Registro"
+        self.Registro.geometry('400x550')
+        self.Registro.configure(bg=POPUP_BORDER)
+
+        title_font = font.Font(family="Helvetica", size=18, weight="bold", slant="italic")
+        label_font = font.Font(family="Helvetica", size=12)
+        inner = tk.Frame(self.Registro, bg=POPUP_BG, bd=2, relief='solid')
+        inner.place(relx=0.5, rely=0.5, anchor='center', width=360, height=500) 
+        tk.Label(inner, text="Registro", font=title_font, bg=POPUP_BG).pack(pady=(20,10))
+
+        # Campo nombre 
+        # Crea un campo de entrada
+        self.entry_nombre = tk.Entry(inner, font=label_font, bg=POPUP_BG)
+        # Inserta el texto
+        self.entry_nombre.insert(0, "Nombre(s)")
+        # Elimina el texto al hacer clic en el campo
+        self.entry_nombre.bind("<FocusIn>", lambda e: self.entry_nombre.delete(0, tk.END) if self.entry_nombre.get() == "Nombre(s)" else None)
+        # define el padding y el tamaño del campo
+        self.entry_nombre.pack(pady=(0,10), ipadx=50, ipady=5)
+              
+                # Campo apellido_paterno
+        self.entry_apeellido_paterno = tk.Entry(inner, font=label_font, bg=POPUP_BG)
+        self.entry_apeellido_paterno.insert(0, "Apellido paterno")
+        self.entry_apeellido_paterno.bind("<FocusIn>", lambda e: self.entry_apeellido_paterno.delete(0, tk.END) if self.entry_apeellido_paterno.get() == "Apellido paterno" else None)
+        self.entry_apeellido_paterno.pack(pady=(0,10), ipadx=50, ipady=5)
+
+
+         # Campo apellido_materno
+        self.entry_apeellido_materno = tk.Entry(inner, font=label_font, bg=POPUP_BG)
+        self.entry_apeellido_materno.insert(0, "Apellido materno")
+        self.entry_apeellido_materno.bind("<FocusIn>", lambda e: self.entry_apeellido_materno.delete(0, tk.END) if self.entry_apeellido_materno.get() == "Apellido materno" else None)
+        self.entry_apeellido_materno.pack(pady=(0,10), ipadx=50, ipady=5)
+
+        #Telefono
+        self.entry_telefono = tk.Entry(inner, font=label_font, bg=POPUP_BG)
+        self.entry_telefono.insert(0, "Telefono")
+        # limipiar el campo de telefono a solo numeros con un limite de 10 numeros al sobrepasar el valor este elimina el numero que se ingreso
+        def limpiar_telefono(event):
+            if self.entry_telefono.get() == "Telefono":
+                self.entry_telefono.delete(0, tk.END)
+            elif not self.entry_telefono.get().isdigit() or len(self.entry_telefono.get()) > 10:
+                self.entry_telefono.delete(len(self.entry_telefono.get())-1, tk.END)
+        self.entry_telefono.bind("<FocusIn>", limpiar_telefono)
+        self.entry_telefono.bind("<KeyRelease>", limpiar_telefono)
+        
+        # Elimina el texto al hacer clic en el campo
+        self.entry_telefono.bind("<FocusIn>", lambda e: self.entry_telefono.delete(0, tk.END) if self.entry_telefono.get() == "Telefono" else None)
+        self.entry_telefono.pack(pady=(0,10), ipadx=50, ipady=5)
+
+
+
+        # Campo usuario
+        self.entry_user = tk.Entry(inner, font=label_font, bg=POPUP_BG)
+        self.entry_user.insert(0, "Usuario")
+        self.entry_user.bind("<FocusIn>", lambda e: self.entry_user.delete(0, tk.END) if self.entry_user.get() == "Usuario" else None)
+        self.entry_user.pack(pady=(0,10), ipadx=50, ipady=5)
+
+        # Campo contraseña
+        self.entry_pass = tk.Entry(inner, font=label_font, bg=POPUP_BG, show="")
+        self.entry_pass.insert(0, "Contraseña")
+        def limpiar_pass(event):
+            if self.entry_pass.get() == "Contraseña":
+                self.entry_pass.delete(0, tk.END)
+                self.entry_pass.config(show="*")
+        self.entry_pass.bind("<FocusIn>", limpiar_pass)
+        self.entry_pass.pack(pady=(0,5), ipadx=50, ipady=5)
+
+        #confirmar contraseña
+        self.entry_pass2 = tk.Entry(inner, font=label_font, bg=POPUP_BG, show="")
+        self.entry_pass2.insert(0, "Confirmar contraseña")
+        def limpiar_pass2(event):
+            if self.entry_pass2.get() == "Confirmar contraseña":
+                self.entry_pass2.delete(0, tk.END)
+                self.entry_pass2.config(show="*")
+        self.entry_pass2.bind("<FocusIn>", limpiar_pass2)
+        self.entry_pass2.pack(pady=(0,5), ipadx=50, ipady=5)
+
+        # Radio buttons para tipo de usuario
+        self.tipo_usuario = tk.StringVar(value="medico")
+        radio_frame = tk.Frame(inner, bg=POPUP_BG)
+        tk.Label(radio_frame, text="Tipo de usuario:", font=label_font, bg=POPUP_BG).pack(side='left')
+        tk.Radiobutton(radio_frame, text="Médico", variable=self.tipo_usuario, value="medico", bg=POPUP_BG, font=label_font).pack(side='left', padx=10)
+        tk.Radiobutton(radio_frame, text="Recepcionista", variable=self.tipo_usuario, value="recepcionista", bg=POPUP_BG, font=label_font).pack(side='left', padx=10)
+        radio_frame.pack(pady=(0,10))
+
+        forgot_label = tk.Label(inner, text="olvidaste contraseña", font=label_font, bg=POPUP_BG, cursor="hand2")
+        forgot_label.pack(anchor='e', padx=20)
+        forgot_label.bind("<Button-1>", lambda e: messagebox.showinfo("Recuperar contraseña", "Por favor, contacta al desarrollador para recuperar tu contraseña."))
+
+        tk.Button(inner, text="Registrarse", bg=BUTTON_REG_BG, fg=BUTTON_FG, font=label_font, bd=0, relief='ridge',command=lambda: self.aut.Registro(
+                self.entry_nombre.get(),
+                self.entry_user.get(),
+                self.entry_pass.get(),
+                self.entry_pass2.get(),
+                self.tipo_usuario.get(),
+                self.entry_telefono.get(),
+                self.entry_apeellido_materno.get(),
+                self.entry_apeellido_paterno.get(),
+                self.Registro
+            )
+        ).pack(pady=20, ipadx=20, ipady=5)
+
+
+
+
+    
+
+
+
+
 def main():
-    app = video()
-    app.iniciar()
+   app = vistaapp()
+
+if __name__ == "__main__":
+   main()
+
+
+
+
+
+
+        
