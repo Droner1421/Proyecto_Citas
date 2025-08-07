@@ -1,8 +1,11 @@
 import tkinter as tk
 from tkinter import messagebox
+from PIL import Image, ImageTk
 from datetime import datetime, timedelta
 from conexionDB import conexionDB
 from Nueva_cita import CitaNueva
+from Dashboard_2 import graficar
+
 
 HEADER_BG = '#8FD3F4'
 BUTTON_OP_BG = '#AAF0D1'
@@ -30,96 +33,127 @@ class ProximasCitasVentana:
 
         self._crear_interfaz()
         self._cargar_citas()
+        self._iniciar_refresco_automatico()  
         self.root.mainloop()
+    def _iniciar_refresco_automatico(self):
+        # Refresca la tabla de citas cada 60 segundos (60000 ms)
+        self._cargar_citas()
+        self.root.after(5000, self._iniciar_refresco_automatico)
 
     def _crear_interfaz(self):
         self._crear_header()
         self._crear_topbar()
-        self._crear_tabla_citas()
+        self.crear_tabla_citas()
         self._crear_footer()
 
     def _crear_header(self):
         header = tk.Frame(self.root, bg=HEADER_BG, height=60, bd=2, relief='groove')
         header.pack(fill='x', side='top')
 
-        logo = tk.Canvas(header, width=40, height=40, bg='white', highlightthickness=1)
-        logo.create_oval(5, 5, 35, 35)
-        logo.create_text(20, 20, text="L", font=("Arial", 14, "bold"))
-        logo.pack(side='left', padx=10, pady=10)
-
-        tk.Label(header, text="Logotipo", bg=HEADER_BG, fg='black',
-                 font=("Arial", 14, "bold")).pack(side='left')
-        tk.Label(header, text="Nombre institución", bg=HEADER_BG, fg='black',
-                 font=("Arial", 16, "bold")).pack(side='right', padx=20)
+        # Logo
+        logo_image = Image.open("logo.jpg")  
+        logo_image = logo_image.resize((50, 50), Image.LANCZOS)
+        logo = ImageTk.PhotoImage(logo_image)
+        logo_label = tk.Label(header, image=logo, bg=HEADER_BG)
+        logo_label.image = logo 
+        logo_label.pack(side='left', padx=10)
+        tk.Label(header, text="Casa de salud La Huanica", bg=HEADER_BG, fg='black',font=("Arial", 14, "bold")).pack(side='left', padx=20)
 
     def _crear_topbar(self):
         topbar = tk.Frame(self.root, bg=FOOTER_BG, height=90, bd=1, relief='groove')
         topbar.pack(fill='x')
 
 
-
         # Submenus 
+        # crea un boton desplegable para operaciones
         op_btn = tk.Menubutton(topbar, text="Operaciones", bg=BUTTON_OP_BG,
                                fg=BUTTON_OP_FG, font=("Arial", 10, "bold"), relief='raised')
+        # Crear un menú asociado al botón anterior
         op_menu = tk.Menu(op_btn, tearoff=0)
-        op_menu.add_command(label="Nueva Cita", command=lambda: messagebox.showinfo("Nueva Cita", "No implementado"))
-        op_menu.add_command(label="Buscar Cita", command=lambda: messagebox.showinfo("Buscar Cita", "No implementado"))
+        # Agregar una opción llamada Nueva Cita que ejecuta la función _abrir_nueva_cita
+        op_menu.add_command(label="Nueva Cita", command=self._abrir_nueva_cita)
+        # Agregar una opción llamada Ver Gráfica que ejecuta la función graficar
+        op_menu.add_command(label="Ver Gráfica", command=graficar)
+       
+
+        
         op_btn.config(menu=op_menu)
         op_btn.pack(side='left', padx=20, pady=5)
 
+        # Mostrar nombre de la recepcionista
+        conexion = conexionDB()
+        cursor = conexion.cursor()
+        cursor.execute("SELECT nombre FROM personal WHERE id = %s", (self.id_usuario,))
+        resultado = cursor.fetchone()
+        cursor.close()
+        conexion.close()
+        if resultado:
+            nombre_medico = resultado[0]
+            tk.Label(topbar, text=f"Bienvenido(a) Recepcionista: {nombre_medico}", bg=FOOTER_BG, font=("Arial", 10, "bold")).pack(side="left", padx=20)
+
+        btn_cerrar = tk.Button(topbar, text="Cerrar Sesión", bg="#FF6347", fg='white',
+                              command=self._cerrar_sesion)
+        btn_cerrar.pack(side='right', padx=20, pady=5)
+
+    def _abrir_nueva_cita(self):
+        # Abre la ventana de nueva cita y fuerza refresco de la tabla al cerrar
+        def refrescar_y_update():
+            self._cargar_citas()
+            self.root.update_idletasks()
+        CitaNueva(master=self.root, on_save=refrescar_y_update)
+    def _cerrar_sesion(self):
+        self.root.destroy()
+        import Inicio
+        Inicio.vistaapp()
 
 
-
-
-        nombre = self._obtener_nombre_usuario()
-        tk.Label(topbar, text="Bienvenido " + nombre, bg=FOOTER_BG, fg='black',
-                 font=("Arial", 10, "bold")).pack(side='left', padx=20)
-
-        tk.Label(topbar, text="Fecha (dd/mm/yyyy):", bg=FOOTER_BG).pack(side='left', padx=(20, 5))
-        self.entry_fecha = tk.Entry(topbar, width=12)
-        self.entry_fecha.pack(side='left')
-
-        tk.Button(topbar, text="Cargar", command=self._actualizar_fecha).pack(side='left', padx=5)
-
-        tk.Button(topbar, text="Cerrar Sesión", bg=CLOSE_BTN_BG, fg='white',
-                  font=("Arial", 10, "bold"), command=self.root.destroy).pack(side='right', padx=10, pady=5)
-
-    def _crear_tabla_citas(self):
+    def crear_tabla_citas(self):
+        # Crea el frame principal de  la tabla de citas
         main_frame = tk.Frame(self.root, bg=TABLE_BG)
         main_frame.pack(fill='both', expand=True, padx=20, pady=10)
 
+        # Muestra la fecha
         semana_text = self._texto_semana()
         self.lbl_fecha = tk.Label(main_frame, text="Citas para la semana: " + semana_text,
                                  font=("Arial", 10, "bold"), bg=TABLE_BG)
         self.lbl_fecha.pack(pady=(10, 0), anchor='ne', padx=10)
 
+        # Título de la tabla
         tk.Label(main_frame, text="¡PRÓXIMAS CITAS!", font=("Arial", 18, "bold"),
                  fg="#1DA1F2", bg=TABLE_BG).pack(pady=(0, 10))
 
+       
         table_frame = tk.Frame(main_frame, bg=TABLE_BG, bd=2, relief='groove')
         table_frame.pack(padx=10, pady=10, fill='both', expand=True)
 
+        # Nombres de los días y horas de las filas
         self.dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
         self.filas = 8
         self.horas = [(datetime.strptime("08:00", "%H:%M") + timedelta(minutes=30 * (i - 1))).strftime("%H:%M")
                       for i in range(1, self.filas + 1)]
 
+        
         tk.Label(table_frame, text="", bg=TABLE_BG).grid(row=0, column=0, padx=5, pady=5)
+       
         for i, dia in enumerate(self.dias, start=1):
             tk.Label(table_frame, text=dia, bg=TABLE_BG, font=("Arial", 10, "bold"))\
                 .grid(row=0, column=i, padx=8, pady=5)
 
+        # Celdas de la tabla: filas de hora y dia
         for r in range(1, self.filas + 1):
+            
             tk.Label(table_frame, text=self.horas[r - 1], bg=TIME_BG, fg=TIME_FG,
                      font=("Arial", 10, "bold"))\
                 .grid(row=r, column=0, padx=5, pady=5, sticky='nsew')
             for c in range(1, len(self.dias) + 1):
+                
                 celda = tk.Label(table_frame, text="", bg=CELL_BG, width=12, height=2,
                                  bd=1, relief='flat', cursor="hand2")
                 celda.grid(row=r, column=c, padx=4, pady=4, sticky='nsew')
                 celda.bind("<Button-1>", lambda e, rr=r, cc=c: self._on_cell_click(rr, cc))
                 self.celdas[(r, c)] = celda
 
+        # Configura el tamaño de las columnas y filas
         for c in range(len(self.dias) + 1):
             table_frame.grid_columnconfigure(c, weight=1)
         for r in range(self.filas + 1):
@@ -131,13 +165,17 @@ class ProximasCitasVentana:
         tk.Label(footer, text="Pie de página", bg=FOOTER_BG,
                  font=("Arial", 14, "bold")).pack(pady=5)
 
-    def _obtener_nombre_usuario(self):
+    def obtener_nombre_usuario(self):
+        # conexion con base de datos
         conexion = conexionDB()
         cursor = conexion.cursor()
+        # Ejecuta  consulta para obtener el nombre del usuario según su id
         cursor.execute("SELECT nombre FROM personal WHERE id = %s", (self.id_usuario,))
         result = cursor.fetchone()
+        # Cierra la conexión a la base de datos
         cursor.close()
         conexion.close()
+        # Manda el nombre si se encontró, si no, se terminara mandando "Desconocido"
         return result[0] if result else "Desconocido"
 
     def _actualizar_fecha(self):
@@ -162,6 +200,8 @@ class ProximasCitasVentana:
         return f"{lunes.strftime('%d/%m/%Y')} - {sabado.strftime('%d/%m/%Y')}"
 
     def _cargar_citas(self):
+        # Limpiar la tabla antes de cargar nuevas citas
+        self._limpiar_tabla()
         db = conexionDB()
         cursor = db.cursor()
         fecha = self.fecha_test or datetime.now().date()
@@ -245,7 +285,7 @@ class ProximasCitasVentana:
     def _mostrar_detalles(self, d):
         top = tk.Toplevel(self.root)
         top.title("Detalles de la Cita")
-        w, h = 400, 350
+        w, h = 400, 650
         x = self.root.winfo_rootx() + (self.root.winfo_width() - w) // 2
         y = self.root.winfo_rooty() + (self.root.winfo_height() - h) // 2
         top.geometry(f"{w}x{h}+{x}+{y}")
@@ -258,25 +298,82 @@ class ProximasCitasVentana:
 
         tk.Label(frm, text="DETALLES DEL PACIENTE", font=("Arial", 14, "bold"), bg=DETAIL_BG).pack(pady=(0, 15))
 
-        for lbl, val in [("Nombre:", d["nombre"]), ("Teléfono:", d["telefono"]), ("Dirección:", d["direccion"])]:
-            row = tk.Frame(frm, bg=DETAIL_BG); row.pack(fill='x', pady=2)
-            tk.Label(row, text=lbl, width=12, anchor='e', bg=DETAIL_BG).pack(side='left')
-            tk.Label(row, text=val, bg=DETAIL_BG).pack(side='left', padx=5)
+        db = conexionDB()
+        cursor = db.cursor()
+        cursor.execute("""
+            SELECT p.id_paciente, p.nombre, p.apellido_paterno, p.apellido_materno, p.direccion, p.telefono, p.nss,
+                   p.temperatura, p.peso, p.edad, p.talla
+            FROM paciente p
+            JOIN cita c ON c.id_paciente = p.id_paciente
+            WHERE p.nombre = %s AND c.fecha = %s AND c.hora = %s
+        """, (
+            d["nombre"],
+            datetime.strptime(d["fecha"], "%d/%m/%Y").strftime("%Y-%m-%d"),
+            d["hora"]
+        ))
+        paciente = cursor.fetchone()
+
+        cursor.execute("""
+            SELECT c.id_cita, c.motivo, per.nombre, per.tipo_usuario
+            FROM cita c
+            JOIN paciente p ON c.id_paciente = p.id_paciente
+            JOIN personal per ON p.id_personal = per.id
+            WHERE p.nombre = %s AND c.fecha = %s AND c.hora = %s
+        """, (
+            d["nombre"],
+            datetime.strptime(d["fecha"], "%d/%m/%Y").strftime("%Y-%m-%d"),
+            d["hora"]
+        ))
+        cita = cursor.fetchone()
+        cursor.close()
+        db.close()
+
+        if paciente:
+            labels = [
+                ("ID Paciente:", paciente[0]),
+                ("Nombre(s):", paciente[1]),
+                ("Apellido paterno:", paciente[2]),
+                ("Apellido materno:", paciente[3]),
+                ("Dirección:", paciente[4]),
+                ("Teléfono:", paciente[5]),
+                ("NSS:", paciente[6]),
+                ("Temperatura:", paciente[7]),
+                ("Peso:", paciente[8]),
+                ("Edad:", paciente[9]),
+                ("Talla:", paciente[10])
+            ]
+            for lbl, val in labels:
+                row = tk.Frame(frm, bg=DETAIL_BG)
+                row.pack(fill='x', pady=2)
+                tk.Label(row, text=lbl, width=16, anchor='e', bg=DETAIL_BG).pack(side='left')
+                tk.Label(row, text=str(val), bg=DETAIL_BG).pack(side='left', padx=5)
 
         tk.Frame(frm, height=2, bg="gray").pack(fill='x', pady=10)
         tk.Label(frm, text="INFORMACIÓN DE LA CITA", font=("Arial", 12, "bold"), bg=DETAIL_BG).pack(pady=(5, 10))
 
-        for lbl, val in [("Fecha:", d["fecha"]), ("Hora:", d["hora"]),
-                         ("Doctor:", f"{d['doctor']} ({d['especialidad']})"),
-                         ("Motivo:", d["motivo"])]:
-            row = tk.Frame(frm, bg=DETAIL_BG); row.pack(fill='x', pady=2)
-            tk.Label(row, text=lbl, width=12, anchor='e', bg=DETAIL_BG).pack(side='left')
-            tk.Label(row, text=val, bg=DETAIL_BG).pack(side='left', padx=5)
+        if cita:
+            cita_labels = [
+                ("ID Cita:", cita[0]),
+                ("Fecha:", d["fecha"]),
+                ("Hora:", d["hora"]),
+                ("Motivo:", cita[1]),
+                ("Doctor:", f"{cita[2]} ({cita[3]})")
+            ]
+            for lbl, val in cita_labels:
+                row = tk.Frame(frm, bg=DETAIL_BG)
+                row.pack(fill='x', pady=2)
+                tk.Label(row, text=lbl, width=16, anchor='e', bg=DETAIL_BG).pack(side='left')
+                tk.Label(row, text=str(val), bg=DETAIL_BG).pack(side='left', padx=5)
 
-        btns = tk.Frame(frm, bg=DETAIL_BG); btns.pack(pady=20)
-        tk.Button(btns, text="Editar", width=10, bg=EDIT_BTN_BG, fg="white",
-                  command=lambda: messagebox.showinfo("Editar", "Función editar")).pack(side='left', padx=5)
-        tk.Button(btns, text="Cerrar", width=10, command=top.destroy).pack(side='left', padx=5)
+        btns = tk.Frame(frm, bg=DETAIL_BG)
+        btns.pack(pady=20)
+
+        def editar_y_cerrar():
+            top.destroy()
+            self.root.after(10, lambda: CitaNueva(master=self.root, id_cita=cita[0] if cita else None))
+
+        tk.Button(btns, text="Editar", width=10, bg=EDIT_BTN_BG, fg="white", command=editar_y_cerrar).pack(side='left', padx=5)
+        tk.Button(btns, text="Cerrar", width=10, bg=CLOSE_BTN_BG, fg="white", command=top.destroy).pack(side='left', padx=5)
 
 if __name__ == "__main__":
     ProximasCitasVentana(id_usuario=1)
