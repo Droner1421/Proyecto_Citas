@@ -7,7 +7,7 @@ from conexionDB import conexionDB
 from ENF import ProximasCitasVentana
 from DOC import vistadoc
 import re
-
+# Colores personalizados para la interfaz
 HEADER_BG = '#8FD3F4'
 BUTTON_REG_BG = '#AAF0D1'
 BUTTON_LOGIN_BG = '#5DADE2'
@@ -24,56 +24,80 @@ class Autentificacion:
         self.conexion = conexionDB()
 
     #Login y saber si es doctor o recepcionista
-    def Login(self, Usuario, Contrasena, ventana_login, ventana_principal, destroy_video):
-        cursor = self.conexion.cursor()
-        cursor.execute("SELECT id, tipo_usuario FROM personal WHERE usuario = %s AND contrasena = %s", (Usuario, Contrasena))
-        result = cursor.fetchone()
-        if result:
-            id_usuario, tipo_usuario = result
-            #comprobar si el usuario es medico o recepcionista
-            if tipo_usuario == "medico":
-                messagebox.showinfo("Login exitoso", "Gracias por iniciar sesión como médico")
-                destroy_video()
-                ventana_login.destroy()
-                ventana_principal.destroy()
-                # Mandar id del usuario a la vista de médico
-                vistadoc(id_usuario)
-            else:
-                messagebox.showinfo("Login exitoso", "Gracias por iniciar sesión como recepcionista")
-                destroy_video()
-                ventana_login.destroy()
-                ventana_principal.destroy()
-                ProximasCitasVentana(id_usuario)
-        else:
-            #mensaje de error si el usuario o contraseña son incorrectos
-            messagebox.showerror("Error", "Usuario o contraseña incorrectos")
-
-    # Método para registrar un nuevo usuario en la base de datos
-    def Registro(self, nombre, Usuario, Contrasena, confirmcontrasena, TipoUsuario, Telefono, apellido_materno, apellido_paterno, ventana):
-        # Verifica que todos los campos estén llenos
-        if not Usuario or not Contrasena or not nombre or not confirmcontrasena or not TipoUsuario or not Telefono or not apellido_paterno or not apellido_materno:
-            messagebox.showerror("Error", "Por favor, rellena todos los campos")
-            return
-        # Verifica que las contraseñas coincidan
-        if Contrasena != confirmcontrasena:
-            messagebox.showerror("Error", "Las contraseñas no coinciden")
-            return
-        cursor = self.conexion.cursor()
-        # Verifica si el usuario ya existe en la base de datos
-        cursor.execute("Select * from personal where usuario = %s", (Usuario,))
-        if cursor.fetchone():
-            messagebox.showerror("Error", "El usuario ya existe")
-            return
-        else:
-            # Inserta el nuevo usuario en la base de datos
+    def Login(self, usuario, contrasena, ventana_login, ventana_principal, destroy_video):
+        try:
+            cursor = self.conexion.cursor()
+            # Buscar usuario con esas credenciales
             cursor.execute(
-                "Insert into personal (usuario, contrasena, nombre, apellido_paterno, apellido_materno, tipo_usuario, telefono) values (%s, %s, %s, %s, %s, %s, %s)",
-                (Usuario, Contrasena, nombre, apellido_paterno, apellido_materno, TipoUsuario, Telefono)
+                "SELECT id, tipo_usuario FROM personal WHERE usuario = %s AND contrasena = %s",
+                (usuario, contrasena)
+            )
+            resultado = cursor.fetchone()
+            cursor.close()
+
+            if resultado:
+                id_usuario, tipo_usuario = resultado
+                # Mensaje de bienvenida según tipo de usuario
+                if tipo_usuario == "medico":
+                    messagebox.showinfo("Login exitoso", "Gracias por iniciar sesión como médico")
+                    if callable(destroy_video):
+                        destroy_video()
+                    ventana_login.destroy()
+                    ventana_principal.destroy()
+                    vistadoc(id_usuario)
+                else:
+                    messagebox.showinfo("Login exitoso", "Gracias por iniciar sesión como recepcionista")
+                    if callable(destroy_video):
+                        destroy_video()
+                    ventana_login.destroy()
+                    ventana_principal.destroy()
+                    ProximasCitasVentana(id_usuario)
+            else:
+                messagebox.showerror("Error", "Usuario o contraseña incorrectos")
+        except Exception as e:
+            messagebox.showerror("Error", f"Ocurrió un error durante el login: {e}")
+    # Método para registrar un nuevo usuario en la base de datos
+    def Registro(self, nombre, usuario, contrasena, confirmar_contrasena, tipo_usuario, telefono, apellido_materno, apellido_paterno, ventana):
+        try:
+            # Validar campos vacíos
+            if not all([usuario, contrasena, nombre, confirmar_contrasena, tipo_usuario,
+                        telefono, apellido_paterno, apellido_materno]):
+                messagebox.showerror("Error", "Por favor, rellena todos los campos")
+                return
+
+            # Validar contraseñas iguales
+            if contrasena != confirmar_contrasena:
+                messagebox.showerror("Error", "Las contraseñas no coinciden")
+                return
+
+            # Validar teléfono numérico y de 10 dígitos
+            if not telefono.isdigit() or len(telefono) != 10:
+                messagebox.showerror("Error", "El teléfono debe contener 10 dígitos numéricos")
+                return
+
+            cursor = self.conexion.cursor()
+
+            # Verificar si el usuario ya existe
+            cursor.execute("SELECT * FROM personal WHERE usuario = %s", (usuario,))
+            if cursor.fetchone():
+                messagebox.showerror("Error", "El nombre de usuario ya existe")
+                cursor.close()
+                return
+
+            # Insertar nuevo usuario
+            cursor.execute(
+                "INSERT INTO personal (usuario, contrasena, nombre, apellido_paterno, apellido_materno, tipo_usuario, telefono) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (usuario, contrasena, nombre, apellido_paterno, apellido_materno, tipo_usuario, telefono)
             )
             self.conexion.commit()
+            cursor.close()
+
             messagebox.showinfo("Registro exitoso", "Gracias por registrarte")
             ventana.destroy()
 
+        except Exception as e:
+            messagebox.showerror("Error", f"Ocurrió un error durante el registro: {e}")
 
 
 
@@ -150,20 +174,26 @@ class vistaapp:
             # si existe llama al método detener
             self.video.detener()
 
-
+    # Vista de inicio
     def vista_inicio(self):
+        # Configuración de la ventana principal
         self.ventana = tk.Tk()
+        # Título de la ventana
         self.ventana.title("Sistema de Salud")
+        # Tamaño de la ventana
         self.ventana.geometry('800x600')
+        #   Color de fondo de la ventana
         self.ventana.configure(bg='white')
+        # Fuente personalizada
         header_font = font.Font(family="Helvetica", size=16, weight="bold")
         title_font = font.Font(family="Helvetica", size=24, weight="bold")
         subtitle_font = font.Font(family="Helvetica", size=14, weight="bold")
         faq_font = font.Font(family="Helvetica", size=12)
-
+        # Encabezado
         header = tk.Frame(self.ventana, bg=HEADER_BG, height=50)
         header.pack(fill='x')
         # Logo
+        # abrir imagen logo.jpg y redimensionarla
         logo_image = Image.open("logo.jpg")  
         logo_image = logo_image.resize((50, 50), Image.LANCZOS)
         logo = ImageTk.PhotoImage(logo_image)
@@ -198,7 +228,7 @@ class vistaapp:
 
         self.video_label = tk.Label(right_frame, bg='black')
         self.video_label.pack(pady=10)
-
+         # Botón para mutear/desmutear audio
         self.mute_button = tk.Button(
             right_frame,
             text="Mutear audio",
@@ -211,6 +241,7 @@ class vistaapp:
         self.video = Video(
             self.video_label,
             self.mute_button,
+            #ruta del video
             r"Consulta en el médico para niños - Tipos de médicos - Estudios sociales _ Kids Academy.mp4"
         )
 
@@ -219,7 +250,7 @@ class vistaapp:
 
 
 
-  
+        # Sección de preguntas frecuentes
         faq_frame = tk.Frame(self.ventana, bg=FAQ_BG)
         faq_frame.pack(fill='x', padx=10)
         tk.Label(faq_frame, text="Preguntas Frecuentes", font=subtitle_font, bg=FAQ_BG).grid(row=0, column=0, sticky='w', pady=(10, 5))
@@ -227,7 +258,7 @@ class vistaapp:
         for i, text in enumerate(faqs, start=1):
             tk.Label(faq_frame, text=f"\u25CA {text}", font=faq_font, bg=FAQ_BG).grid(row=(i // 2) + 1, column=(i - 1) % 2, sticky='w', padx=20, pady=2)
 
-
+        # Pie de página
         footer = tk.Frame(self.ventana, bg=FOOTER_BG, height=30)
         footer.pack(fill='x', side='bottom')
         tk.Label(footer, text="", bg=FOOTER_BG, fg='black', font=subtitle_font).pack(pady=5)
@@ -236,13 +267,14 @@ class vistaapp:
         self.ventana.mainloop()
 
 
-
+    # Vista de login
     def login_vista(self):
+        #Ventana de login y sus componentes
         self.login = tk.Toplevel()
         self.login.title = "Login"
         self.login.geometry('400x400')
         self.login.configure(bg=POPUP_BORDER)
-
+        # Fuente personalizada
         title_font = font.Font(family="Helvetica", size=18, weight="bold", slant="italic")
         label_font = font.Font(family="Helvetica", size=12)
         inner = tk.Frame(self.login, bg=POPUP_BG, bd=2, relief='solid')
@@ -263,13 +295,14 @@ class vistaapp:
         # Campo contraseña
         self.entry_pass = tk.Entry(inner, font=label_font, bg=POPUP_BG, show="")
         self.entry_pass.insert(0, "Contraseña")
+        # limpiar el campo de contraseña y mostrar asteriscos
         def limpiar_pass(event):
             if self.entry_pass.get() == "Contraseña":
                 self.entry_pass.delete(0, tk.END)
                 self.entry_pass.config(show="*")
         self.entry_pass.bind("<FocusIn>", limpiar_pass)
         self.entry_pass.pack(pady=(0,5), ipadx=50, ipady=5)
-
+        # Olvidaste contraseña label
         forgot_label = tk.Label(inner, text="olvidaste contraseña", font=label_font, bg=POPUP_BG, cursor="hand2")
         forgot_label.pack(anchor='e', padx=20)
         forgot_label.bind("<Button-1>", lambda e: messagebox.showinfo("Recuperar contraseña", "Por favor, contacta al desarrollador para recuperar tu contraseña."))
@@ -290,11 +323,12 @@ class vistaapp:
 
 
     def Registro_vista(self):
+        #Ventana de registro y sus componentes
         self.Registro = tk.Toplevel()
         self.Registro.title = "Registro"
         self.Registro.geometry('400x550')
         self.Registro.configure(bg=POPUP_BORDER)
-
+        # Fuente personalizada
         title_font = font.Font(family="Helvetica", size=18, weight="bold", slant="italic")
         label_font = font.Font(family="Helvetica", size=12)
         inner = tk.Frame(self.Registro, bg=POPUP_BG, bd=2, relief='solid')
@@ -379,8 +413,9 @@ class vistaapp:
         forgot_label = tk.Label(inner, text="olvidaste contraseña", font=label_font, bg=POPUP_BG, cursor="hand2")
         forgot_label.pack(anchor='e', padx=20)
         forgot_label.bind("<Button-1>", lambda e: messagebox.showinfo("Recuperar contraseña", "Por favor, contacta al desarrollador para recuperar tu contraseña."))
-
+            # Validar datos antes de registrar
         def validar_datos():
+                # Obtener y limpiar los datos de los campos
             nombre = self.entry_nombre.get().strip()
             usuario = self.entry_user.get().strip()
             contrasena = self.entry_pass.get().strip()
@@ -389,13 +424,13 @@ class vistaapp:
             apellido_paterno = self.entry_apeellido_paterno.get().strip()
             apellido_materno = self.entry_apeellido_materno.get().strip()
             
-
+            # Validaciones
             campos = [nombre, usuario, contrasena, confirm_contrasena, telefono, apellido_paterno, apellido_materno]
             valores_por_defecto = ["Nombre(s)", "Usuario", "Contraseña", "Confirmar contraseña", "Telefono", "Apellido paterno", "Apellido materno"]
             if any (c == "" or c in valores_por_defecto for c in campos):
                 messagebox.showerror("Error", "Por favor, rellena todos los campos")
                 return False
-            
+            # Validar que el nombre y apellidos solo contengan letras y espacios
             patron_nombre = r"^[a-zA-Z\s]+$"
             if not re.match(patron_nombre, nombre):
                 messagebox.showerror("Error", "El nombre solo debe contener letras y espacios")
@@ -433,7 +468,7 @@ class vistaapp:
             if len(usuario) < 5:
                 messagebox.showerror("Error", "El usuario debe tener al menos 5 caracteres")
                 return
-            
+            # Si todas las validaciones pasan, llama al método de registro
             self.aut.Registro(
                 nombre,
                 usuario,
@@ -446,8 +481,8 @@ class vistaapp:
                 self.Registro
             )
             
-
-
+        
+            # Cierra la ventana de registro al completar el registro  y mandar valores a la base de datos
         tk.Button(inner, text="Registrarse", bg=BUTTON_REG_BG, fg=BUTTON_FG, font=label_font, bd=0, relief='ridge', command=validar_datos).pack(pady=20, ipadx=20, ipady=5)
 
 
@@ -457,10 +492,10 @@ class vistaapp:
 
 
 
-
+#metodo main
 def main():
    app = vistaapp()
-
+#inicio del programa
 if __name__ == "__main__":
    main()
 

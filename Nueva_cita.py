@@ -1,4 +1,3 @@
-
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 from tkcalendar import DateEntry
@@ -7,7 +6,7 @@ from conexionDB import conexionDB
 import tkinter.ttk as ttk
 
 class CitaNueva(tk.Toplevel):
-
+    # Ventana para crear, actualizar o eliminar citas médicas  da sus respectivas configuraciones de tamaño, color y título
     def __init__(self, master=None, on_save=None, id_cita=None):
         super().__init__(master)
         self.on_save = on_save
@@ -16,9 +15,11 @@ class CitaNueva(tk.Toplevel):
         self.configure(bg="#f0f8ff")
         self.crear_encabezado()
         self.crear_vista()
+        # si se proporciona un id_cita, cargar los datos de la cita
         if id_cita is not None:
             self.cargar_datos_de_cita(id_cita)
 
+    # encabezado de la ventana con el nombre de la clínica y el título de la gestión de citas
     def crear_encabezado(self):
         encabezado = tk.Frame(self, bg="#69BEF3", height=50)
         encabezado.pack(fill="x")
@@ -27,6 +28,7 @@ class CitaNueva(tk.Toplevel):
         tk.Label(encabezado, text="Gestión de Citas", bg="#81d4fa", fg="black",
                  font=("Helvetica", 12, "italic")).pack(side="right", padx=20)
 
+    # crear la vista principal 
     def crear_vista(self):
         contenido = tk.Frame(self, bg="#FFFFFF")
         contenido.pack(padx=20, pady=10, fill="both", expand=True)
@@ -34,7 +36,6 @@ class CitaNueva(tk.Toplevel):
         # --- Validadores ---
         def validar_numeros(texto):
             return texto.isdigit() or texto == ""
-        
 
         def validar_letras(texto):
             return all(c.isalpha() or c.isspace() for c in texto) or texto == ""
@@ -47,7 +48,7 @@ class CitaNueva(tk.Toplevel):
                 return True
             except ValueError:
                 return False
-         
+
         def validar_telefono(texto):
             return (texto.isdigit() or texto == "") and len(texto) <= 10
 
@@ -61,6 +62,7 @@ class CitaNueva(tk.Toplevel):
                 return 0 <= int(texto) <= 120
             return False
 
+        # Registrar validadores que se usarán en los campos de entrada
         vcmd_num = contenido.register(validar_numeros)
         vcmd_let = contenido.register(validar_letras)
         vcmd_dec = contenido.register(validar_decimal)
@@ -68,6 +70,7 @@ class CitaNueva(tk.Toplevel):
         vcmd_nss = contenido.register(validar_nss)
         vcmd_edad = contenido.register(validar_edad)
 
+        # Etiquetas y campos de entrada 
         etiquetas = [
             ("ID Cita:", 0),
             ("Nombre(s):", 1),
@@ -84,13 +87,14 @@ class CitaNueva(tk.Toplevel):
             ("Fecha (YYYY-MM-DD):", 12),
             ("Motivo:", 13)
         ]
-
+        # self.entries se usa para almacenar referencias a los campos de entrada
         self.entries = {}
-
+        # Crear etiquetas y campos de entrada en una cuadrícula de nombre, apellido paterno, apellido materno, dirección, teléfono, nss, temperatura, peso, edad, talla, fecha, motivo y hora
+        # La hora es un combobox con horarios predefinidos
         for texto, fila in etiquetas:
             tk.Label(contenido, text=texto, bg="#f0f8ff", fg="#000000",
                      font=("Arial", 10, "bold")).grid(row=fila, column=0, sticky="e", padx=10, pady=6)
-
+            # validadores para los campos de entrada
             if texto == "ID Cita:":
                 self.id_cita_label = tk.Label(contenido, text="", bg="white", fg="black", width=40, anchor="w", relief="sunken")
                 self.id_cita_label.grid(row=fila, column=1, padx=10, pady=6, sticky="ew")
@@ -112,7 +116,7 @@ class CitaNueva(tk.Toplevel):
                 self.hora_combo.grid(row=fila, column=1, padx=10, pady=6, sticky="ew")
                 self.hora_combo.current(0)
                 self.entries[texto] = self.hora_combo
-
+            # validador para que solo se puedan ingresar letras y espacios
             elif texto == "Nombre(s):":
                 entry = tk.Entry(contenido, bg="white", width=40, validate="key", validatecommand=(vcmd_let, "%P"))
                 entry.grid(row=fila, column=1, padx=10, pady=6, sticky="ew")
@@ -175,7 +179,7 @@ class CitaNueva(tk.Toplevel):
         botones_frame.columnconfigure(0, weight=1)
         botones_frame.columnconfigure(1, weight=1)
         botones_frame.columnconfigure(2, weight=1)
-
+        # fila_botones = fila_doctor + 1 esto es para que los botones queden alineados
         fila_botones = fila_doctor + 1
         tk.Button(contenido, text="Guardar Cita", bg="#00796b", fg="white", font=("Arial", 10, "bold"),
                   command=self.guardar_cita).grid(row=fila_botones, column=1, pady=10)
@@ -184,6 +188,126 @@ class CitaNueva(tk.Toplevel):
         tk.Button(contenido, text="Eliminar Cita", bg="#d32f2f", fg="white", font=("Arial", 10, "bold"),
                   command=self.eliminar_cita).grid(row=fila_botones+2, column=1, pady=5)
 
+    # Validar todos los campos y devolver un diccionario con los datos si todo está bien
+    def validar_campos(self):
+        # Validar campos obligatorios
+        campos_obligatorios = [
+            ("Nombre(s):", self.entries["Nombre(s):"].get()),
+            ("Apellido paterno:", self.entries["Apellido paterno:"].get()),
+            ("Apellido materno:", self.entries["Apellido materno:"].get()),
+            ("Dirección:", self.entries["Dirección:"].get()),
+            ("Teléfono:", self.entries["Teléfono:"].get()),
+            ("NSS:", self.entries["NSS:"].get()),
+            ("Temperatura:", self.entries["Temperatura:"].get()),
+            ("Peso:", self.entries["Peso:"].get()),
+            ("Edad:", self.entries["Edad:"].get()),
+            ("Talla:", self.entries["Talla:"].get()),
+            ("Fecha (YYYY-MM-DD):", self.entries["Fecha (YYYY-MM-DD):"].get_date().strftime("%Y-%m-%d")),
+            ("Motivo:", self.entries["Motivo:"].get())
+        ]
+        faltantes = [campo for campo, valor in campos_obligatorios if not valor]
+        if faltantes:
+            messagebox.showerror("Error", f"Faltan datos en los siguientes campos:\n{', '.join(faltantes)}")
+            return None
+
+        telefono = self.entries["Teléfono:"].get()
+        if len(telefono) != 10:
+            messagebox.showerror("Error", "El teléfono debe tener exactamente 10 dígitos.")
+            return None
+
+        nss = self.entries["NSS:"].get()
+        if len(nss) != 11:
+            messagebox.showerror("Error", "El NSS debe tener exactamente 11 dígitos.")
+            return None
+
+        temperatura_str = self.entries["Temperatura:"].get()
+        if not temperatura_str or not temperatura_str.replace('.', '', 1).isdigit():
+            messagebox.showerror("Error", "Temperatura inválida.")
+            return None
+        temperatura = float(temperatura_str)
+        if not (30 <= temperatura <= 45):
+            messagebox.showerror("Error", "La temperatura debe estar entre 30 y 45 °C.")
+            return None
+
+        peso_str = self.entries["Peso:"].get()
+        if not peso_str or not peso_str.replace('.', '', 1).isdigit():
+            messagebox.showerror("Error", "Peso inválido.")
+            return None
+        peso = float(peso_str)
+        if not (1 <= peso <= 500):
+            messagebox.showerror("Error", "El peso debe estar entre 1 y 500 kg.")
+            return None
+
+        talla_str = self.entries["Talla:"].get()
+        if not talla_str or not talla_str.replace('.', '', 1).isdigit():
+            messagebox.showerror("Error", "Talla inválida.")
+            return None
+        talla = float(talla_str)
+        if not (0.3 <= talla <= 3):
+            messagebox.showerror("Error", "La talla debe estar entre 0.3 y 3 metros.")
+            return None
+
+        edad_str = self.entries["Edad:"].get()
+        if not edad_str or not edad_str.isdigit():
+            messagebox.showerror("Error", "Edad inválida.")
+            return None
+        edad = int(edad_str)
+        if not (0 <= edad <= 120):
+            messagebox.showerror("Error", "La edad debe estar entre 0 y 120 años.")
+            return None
+
+        # nombre y apellidos deben tener 3 caracteres como mínimo
+        if len(self.entries["Nombre(s):"].get()) < 3:
+            messagebox.showerror("Error", "Ingresa un nombre valido.")
+            return None
+        if len(self.entries["Apellido paterno:"].get()) < 3:
+            messagebox.showerror("Error", "Ingresa un apellido paterno valido.")
+            return None
+        if len(self.entries["Apellido materno:"].get()) < 3:
+            messagebox.showerror("Error", "Ingresa un apellido materno valido.")
+            return None
+        # Validar dirección
+        if len(self.entries["Dirección:"].get()) < 5:
+            messagebox.showerror("Error", "Ingresa una direccion valida.")
+            return None
+
+        fecha = self.entries["Fecha (YYYY-MM-DD):"].get_date().strftime("%Y-%m-%d")
+        motivo = self.entries["Motivo:"].get()
+        hora = self.hora_var.get()
+
+        try:
+            hora_dt = datetime.strptime(hora, "%H:%M:%S")
+            if hora_dt.hour < 8 or (hora_dt.hour > 11 or (hora_dt.hour == 11 and hora_dt.minute > 30)):
+                messagebox.showerror("Error", "La hora debe estar entre las 08:00:00 y las 11:30:00.")
+                return None
+        except ValueError:
+            messagebox.showerror("Error", "Formato de hora inválido. Usa HH:MM:SS")
+            return None
+
+        doctor_nombre = self.doctor_var.get()
+        id_doctor = self.doctores_dict.get(doctor_nombre)
+        if not id_doctor:
+            messagebox.showerror("Error", "Debes seleccionar un doctor.")
+            return None
+
+        return {
+            "nombre": self.entries["Nombre(s):"].get(),
+            "apellido_paterno": self.entries["Apellido paterno:"].get(),
+            "apellido_materno": self.entries["Apellido materno:"].get(),
+            "direccion": self.entries["Dirección:"].get(),
+            "telefono": telefono,
+            "nss": nss,
+            "temperatura": temperatura,
+            "peso": peso,
+            "edad": edad,
+            "talla": talla,
+            "fecha": fecha,
+            "motivo": motivo,
+            "hora": hora,
+            "id_doctor": id_doctor
+        }
+
+    # verificar si hay coincidencias en la base de datos al escribir el nombre
     def _verificar_coincidencias(self, event=None):
         nombre = self.entries["Nombre(s):"].get()
         if not nombre:
@@ -198,11 +322,13 @@ class CitaNueva(tk.Toplevel):
         resultados = cursor.fetchall()
         cursor.close()
         conn.close()
+        # si hay resultados, habilitar el botón de buscar usuarios
         if resultados:
             self.btn_buscar_usuario.config(state="normal")
         else:
             self.btn_buscar_usuario.config(state="disabled")
 
+    # buscar usuarios por nombre y mostrar una lista para seleccionar
     def buscar_usuarios(self):
         nombre = self.entries["Nombre(s):"].get()
         if not nombre:
@@ -227,10 +353,12 @@ class CitaNueva(tk.Toplevel):
         if seleccion and any(r[0] == seleccion for r in resultados):
             self.cargar_datos_paciente(seleccion)
 
+    # establecer la hora actual en el combobox de hora
     def _set_hora_estatica(self):
         if hasattr(self, 'hora_var'):
             self.hora_var.set(datetime.now().strftime("%H:%M:%S"))
 
+    # cargar los datos de una cita existente en los campos de entrada
     def cargar_datos_de_cita(self, id_cita):
         conn = conexionDB()
         cursor = conn.cursor()
@@ -240,12 +368,11 @@ class CitaNueva(tk.Toplevel):
         cita = cursor.fetchone()
         cursor.close()
         conn.close()
-
         if cita:
             self.id_cita_label.config(text=str(id_cita))
             self.entries["Fecha (YYYY-MM-DD):"].set_date(cita[1])
             if hasattr(self, 'hora_var'):
-                self.hora_var.set(str(cita[2]))
+                self.hora_var.set(str(cita[2]))    
             else:
                 self.entries["Hora:"].delete(0, tk.END)
                 self.entries["Hora:"].insert(0, cita[2])
@@ -255,6 +382,7 @@ class CitaNueva(tk.Toplevel):
         else:
             self.id_cita_label.config(text="")
 
+    # cargar los datos de un paciente en los campos de entrada
     def cargar_datos_paciente(self, id_paciente):
         conn = conexionDB()
         cursor = conn.cursor()
@@ -264,11 +392,12 @@ class CitaNueva(tk.Toplevel):
         paciente = cursor.fetchone()
         cursor.close()
         conn.close()
-
+        # Limpiar campos antes de cargar nuevos datos
+        # Limpiar solo los campos que no son fecha, motivo u hora
         for campo in self.entries:
             if campo not in ["Fecha (YYYY-MM-DD):", "Motivo:", "Hora:"]:
                 self.entries[campo].delete(0, tk.END)
-
+        # si se encuentra el paciente, cargar sus datos en los campos correspondientes
         if paciente:
             claves = [
                 "Nombre(s):", "Apellido paterno:", "Apellido materno:", "Dirección:", "Teléfono:", "NSS:", "Temperatura:", "Peso:", "Edad:", "Talla:"
@@ -277,112 +406,17 @@ class CitaNueva(tk.Toplevel):
                 if paciente[i] is not None:
                     self.entries[clave].insert(0, paciente[i])
 
+    # guardar una nueva cita en la base de datos
     def guardar_cita(self):
-        # Validar campos obligatorios
-        campos_obligatorios = [
-            ("Nombre(s):", self.entries["Nombre(s):"].get()),
-            ("Apellido paterno:", self.entries["Apellido paterno:"].get()),
-            ("Apellido materno:", self.entries["Apellido materno:"].get()),
-            ("Dirección:", self.entries["Dirección:"].get()),
-            ("Teléfono:", self.entries["Teléfono:"].get()),
-            ("NSS:", self.entries["NSS:"].get()),
-            ("Temperatura:", self.entries["Temperatura:"].get()),
-            ("Peso:", self.entries["Peso:"].get()),
-            ("Edad:", self.entries["Edad:"].get()),
-            ("Talla:", self.entries["Talla:"].get()),
-            ("Fecha (YYYY-MM-DD):", self.entries["Fecha (YYYY-MM-DD):"].get_date().strftime("%Y-%m-%d")),
-            ("Motivo:", self.entries["Motivo:"].get())
-        ]
-        faltantes = [campo for campo, valor in campos_obligatorios if not valor]
-        if faltantes:
-            messagebox.showerror("Error", f"Faltan datos en los siguientes campos:\n{', '.join(faltantes)}")
-            return
-
-        # Validar campos específicos
-        telefono = self.entries["Teléfono:"].get()
-        if len(telefono) != 10:
-            messagebox.showerror("Error", "El teléfono debe tener exactamente 10 dígitos.")
-            return
-
-        nss = self.entries["NSS:"].get()
-        if len(nss) != 11:
-            messagebox.showerror("Error", "El NSS debe tener exactamente 11 dígitos.")
-            return
-
-        temperatura_str = self.entries["Temperatura:"].get()
-        if not temperatura_str or not temperatura_str.replace('.', '', 1).isdigit():
-            messagebox.showerror("Error", "Temperatura inválida.")
-            return
-        temperatura = float(temperatura_str)
-        if not (30 <= temperatura <= 45):
-            messagebox.showerror("Error", "La temperatura debe estar entre 30 y 45 °C.")
-            return
-
-        peso_str = self.entries["Peso:"].get()
-        if not peso_str or not peso_str.replace('.', '', 1).isdigit():
-            messagebox.showerror("Error", "Peso inválido.")
-            return
-        peso = float(peso_str)
-        if not (1 <= peso <= 500):
-            messagebox.showerror("Error", "El peso debe estar entre 1 y 500 kg.")
-            return
-
-        talla_str = self.entries["Talla:"].get()
-        if not talla_str or not talla_str.replace('.', '', 1).isdigit():
-            messagebox.showerror("Error", "Talla inválida.")
-            return
-        talla = float(talla_str)
-        if not (0.3 <= talla <= 3):
-            messagebox.showerror("Error", "La talla debe estar entre 0.3 y 3 metros.")
-            return
-
-        edad_str = self.entries["Edad:"].get()
-        if not edad_str or not edad_str.isdigit():
-            messagebox.showerror("Error", "Edad inválida.")
-            return
-        edad = int(edad_str)
-        if not (0 <= edad <= 120):
-            messagebox.showerror("Error", "La edad debe estar entre 0 y 120 años.")
-            return
-        
-        # nombre y apellidos deben tener 3 caracteres como mínimo
-        if len(self.entries["Nombre(s):"].get()) < 3:
-            messagebox.showerror("Error", "Ingresa un nombre valido.")
-            return
-        if len(self.entries["Apellido paterno:"].get()) < 3:
-            messagebox.showerror("Error", "Ingresa un apellido paterno valido.")
-            return
-        if len(self.entries["Apellido materno:"].get()) < 3:
-            messagebox.showerror("Error", "Ingresa un apellido materno valido.")
-            return
-        # Validar dirección
-        if len(self.entries["Dirección:"].get()) < 5:
-            messagebox.showerror("Error", "Ingresa una direccion valida.")
-            return
-        fecha = self.entries["Fecha (YYYY-MM-DD):"].get_date().strftime("%Y-%m-%d")
-        motivo = self.entries["Motivo:"].get()
-        hora = self.hora_var.get()
-
-        try:
-            hora_dt = datetime.strptime(hora, "%H:%M:%S")
-            if hora_dt.hour < 8 or (hora_dt.hour > 11 or (hora_dt.hour == 11 and hora_dt.minute > 30)):
-                messagebox.showerror("Error", "La hora debe estar entre las 08:00:00 y las 11:30:00.")
-                return
-        except ValueError:
-            messagebox.showerror("Error", "Formato de hora inválido. Usa HH:MM:SS")
-            return
-
-        doctor_nombre = self.doctor_var.get()
-        id_doctor = self.doctores_dict.get(doctor_nombre)
-        if not id_doctor:
-            messagebox.showerror("Error", "Debes seleccionar un doctor.")
+        datos = self.validar_campos()
+        if not datos:
             return
 
         conn = conexionDB()
         cursor = conn.cursor()
         cursor.execute(
             "SELECT id_cita FROM cita WHERE fecha=%s AND hora=%s",
-            (fecha, hora)
+            (datos["fecha"], datos["hora"])
         )
         cita_existente = cursor.fetchone()
         if cita_existente:
@@ -393,7 +427,7 @@ class CitaNueva(tk.Toplevel):
 
         cursor.execute(
             "SELECT id_paciente FROM paciente WHERE nombre=%s AND apellido_paterno=%s AND apellido_materno=%s",
-            (self.entries["Nombre(s):"].get(), self.entries["Apellido paterno:"].get(), self.entries["Apellido materno:"].get())
+            (datos["nombre"], datos["apellido_paterno"], datos["apellido_materno"])
         )
         resultado = cursor.fetchone()
 
@@ -402,30 +436,31 @@ class CitaNueva(tk.Toplevel):
             cursor.execute("""
                 UPDATE paciente SET direccion=%s, telefono=%s, nss=%s, temperatura=%s, peso=%s, edad=%s, talla=%s, id_personal=%s
                 WHERE id_paciente=%s
-            """, (self.entries["Dirección:"].get(), telefono, nss, temperatura, peso, edad, talla, id_doctor, id_paciente))
+            """, (datos["direccion"], datos["telefono"], datos["nss"], datos["temperatura"], datos["peso"], datos["edad"], datos["talla"], datos["id_doctor"], id_paciente))
         else:
             cursor.execute("""
                 INSERT INTO paciente (nombre, apellido_paterno, apellido_materno, direccion, telefono, nss, temperatura, peso, edad, talla, id_personal)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
-                self.entries["Nombre(s):"].get(),
-                self.entries["Apellido paterno:"].get(),
-                self.entries["Apellido materno:"].get(),
-                self.entries["Dirección:"].get(),
-                telefono,
-                nss,
-                temperatura,
-                peso,
-                edad,
-                talla,
-                id_doctor
+                #Datos que se van a insertar en la tabla paciente
+                datos["nombre"],
+                datos["apellido_paterno"],
+                datos["apellido_materno"],
+                datos["direccion"],
+                datos["telefono"],
+                datos["nss"],
+                datos["temperatura"],
+                datos["peso"],
+                datos["edad"],
+                datos["talla"],
+                datos["id_doctor"]
             ))
             conn.commit()
             id_paciente = cursor.lastrowid
 
         cursor.execute(
             "INSERT INTO cita (id_paciente, fecha, hora, motivo) VALUES (%s, %s, %s, %s)",
-            (id_paciente, fecha, hora, motivo)
+            (id_paciente, datos["fecha"], datos["hora"], datos["motivo"])
         )
         conn.commit()
         id_cita = cursor.lastrowid
@@ -438,33 +473,32 @@ class CitaNueva(tk.Toplevel):
             self.on_save()
         self.destroy()
 
+    # actualizar los datos de una cita existente en la base de datos
     def actualizar_cita(self):
         id_cita = self.id_cita_label.cget("text")
         if not id_cita:
             messagebox.showerror("Error", "No hay ID de cita para actualizar.")
             return
-
-        nombre = self.entries["Nombre(s):"].get()
-        apellido_paterno = self.entries["Apellido paterno:"].get()
-        apellido_materno = self.entries["Apellido materno:"].get()
-        direccion = self.entries["Dirección:"].get()
-        telefono = self.entries["Teléfono:"].get()
-        nss = self.entries["NSS:"].get()
-        temperatura = self.entries["Temperatura:"].get()
-        peso = self.entries["Peso:"].get()
-        edad = self.entries["Edad:"].get()
-        talla = self.entries["Talla:"].get()
-        fecha = self.entries["Fecha (YYYY-MM-DD):"].get_date().strftime("%Y-%m-%d")
-        hora = self.hora_var.get()
-        motivo = self.entries["Motivo:"].get()
-        doctor_nombre = self.doctor_var.get()
-        id_doctor = self.doctores_dict.get(doctor_nombre)
+        datos = self.validar_campos()
+        if not datos:
+            return
 
         conn = conexionDB()
         cursor = conn.cursor()
 
         cursor.execute("SELECT id_paciente FROM cita WHERE id_cita=%s", (id_cita,))
         res = cursor.fetchone()
+
+        cursor.execute(
+            "SELECT id_cita FROM cita WHERE fecha=%s AND hora=%s AND id_cita<>%s",
+            (datos["fecha"], datos["hora"], id_cita)
+        )
+        cita_existente = cursor.fetchone()
+        if cita_existente:
+            messagebox.showerror("Error", "Ya hay una cita registrada en esa hora y fecha. Por favor ingresa una hora y fecha diferentes.")
+            cursor.close()
+            conn.close()
+            return
         if not res:
             messagebox.showerror("Error", "No se encontró la cita.")
             cursor.close()
@@ -476,12 +510,12 @@ class CitaNueva(tk.Toplevel):
             UPDATE paciente SET nombre=%s, apellido_paterno=%s, apellido_materno=%s, direccion=%s, telefono=%s, nss=%s,
             temperatura=%s, peso=%s, edad=%s, talla=%s, id_personal=%s
             WHERE id_paciente=%s
-        """, (nombre, apellido_paterno, apellido_materno, direccion, telefono, nss, temperatura, peso, edad, talla, id_doctor, id_paciente))
+        """, (datos["nombre"], datos["apellido_paterno"], datos["apellido_materno"], datos["direccion"], datos["telefono"], datos["nss"], datos["temperatura"], datos["peso"], datos["edad"], datos["talla"], datos["id_doctor"], id_paciente))
 
         cursor.execute("""
             UPDATE cita SET fecha=%s, hora=%s, motivo=%s
             WHERE id_cita=%s
-        """, (fecha, hora, motivo, id_cita))
+        """, (datos["fecha"], datos["hora"], datos["motivo"], id_cita))
 
         conn.commit()
         cursor.close()
@@ -491,6 +525,7 @@ class CitaNueva(tk.Toplevel):
             self.on_save()
         self.destroy()
 
+    # eliminar una cita existente de la base de datos
     def eliminar_cita(self):
         id_cita = self.id_cita_label.cget("text")
         if not id_cita:
@@ -510,6 +545,7 @@ class CitaNueva(tk.Toplevel):
             self.on_save()
         self.destroy()
 
+    # limpiar todos los campos de entrada
     def limpiar_campos(self):
         self.id_cita_label.config(text="")
         for campo in ["Dirección:", "Teléfono:", "NSS:", "Temperatura:", "Peso:", "Edad:", "Talla:", "Motivo:"]:
@@ -522,6 +558,7 @@ class CitaNueva(tk.Toplevel):
         if self.doctor_combo['values']:
             self.doctor_combo.current(0)
 
+# función principal para probar la ventana de gestión de citas
 def main():
     root = tk.Tk()
     root.withdraw()
